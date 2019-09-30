@@ -155,7 +155,7 @@ public class DataPlacement {
 	//private static final List<String> dataflows = Arrays.asList(zoning,mixed,distributed);
 	public static final List<String> dataflows = Arrays.asList(distributed);
 	
-	public static final String FloydPath = "/home/islam/Bureau/";
+	public static final String FloydPath = "/home/t430/Bureau/";
 	
 	public static String dataflow_used;
 	

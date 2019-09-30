@@ -538,7 +538,14 @@ public class BasisDelayMatrix {
 		float[][] matrix = new float[DataPlacement.nb_HGW + DataPlacement.nb_LPOP + DataPlacement.nb_RPOP + DataPlacement.nb_DC]
 									[DataPlacement.nb_HGW+ DataPlacement.nb_LPOP + DataPlacement.nb_RPOP + DataPlacement.nb_DC];
 		
-		FileReader fichier = new FileReader("latencies/latency" + DataPlacement.nb_HGW+ "parallel.txt");
+		FileReader fichier;
+		if(new File("latencies/latency" + DataPlacement.nb_HGW+ "parallel.txt").exists()) {
+			fichier = new FileReader("latencies/latency" + DataPlacement.nb_HGW+ "parallel.txt");
+			
+		}else {
+			fichier = new FileReader("latencies/latency" + DataPlacement.nb_HGW+ "sequence.txt");
+			
+		}
 		BufferedReader in = null;
 		try {
 			
