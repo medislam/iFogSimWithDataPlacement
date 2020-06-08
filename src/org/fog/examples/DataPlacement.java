@@ -12,6 +12,7 @@ import org.StorageMode.CloudStorage;
 import org.StorageMode.FogStorage;
 import org.StorageMode.GraphPartitionStorage;
 import org.StorageMode.ZoningStorage;
+import org.StorageMode.ZoningStorageParallel;
 import org.cloudbus.cloudsim.Host;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.Pe;
@@ -125,12 +126,14 @@ public class DataPlacement {
 	public static final String ClosestNode = "ClosestNode";
 	public static final String FogStorage = "FogStorage";
 	public static final String ZoningStorage = "ZoningStorage";
+	public static final String ZoningStorageParallel = "ZoningStorageParallel";
 	public static final String GraphPartitionStorage = "GraphPartitionStorage";
 
-	public static final List<String> storageModes = Arrays.asList(CloudStorage,ClosestNode,FogStorage,ZoningStorage,GraphPartitionStorage);
+	//public static final List<String> storageModes = Arrays.asList(CloudStorage,ClosestNode,FogStorage,ZoningStorage,GraphPartitionStorage);
+	public static final List<String> storageModes = Arrays.asList(CloudStorage,ZoningStorage,ZoningStorageParallel);
 	//public static final List<String> storageModes = Arrays.asList(CloudStorage, ClosestNode);
 
-	public static final List<Integer> nb_zones_list = Arrays.asList(5);
+	public static final List<Integer> nb_zones_list = Arrays.asList(10);
 	public static final List<Integer> nb_partitions_list = Arrays.asList(2,5);
 
 	
@@ -165,6 +168,8 @@ public class DataPlacement {
 	public static boolean trace_flag = true; // mean trace events
 	public static Calendar calendar;
 	public static int num_user = 1; // number of cloud users
+	
+	public static boolean generate_log_file = false;
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -187,7 +192,7 @@ public class DataPlacement {
 			for(String df: dataflows){
 				dataflow_used = df;
 			
-			long b_sim, e_sim;
+			long b_sim, e_sim,  b_simZone, e_simZone, t_simZone;
 				
 			b_sim = Calendar.getInstance().getTimeInMillis();
 			
@@ -213,9 +218,26 @@ public class DataPlacement {
 				
 			} else if (storageMode.equals(ZoningStorage)) {
 				ZoningStorage zoning = new ZoningStorage();
+				
+				b_simZone = Calendar.getInstance().getTimeInMillis();
 				zoning.sim();
+				e_simZone = Calendar.getInstance().getTimeInMillis();
+				t_simZone = e_simZone - b_simZone;
+				System.out.println("Zoning Storage Simualtion Time ="+t_simZone);
 
-			} else if (storageMode.equals(GraphPartitionStorage)) {
+			}else if (storageMode.equals(ZoningStorageParallel)) {
+				ZoningStorageParallel zoningParallel = new ZoningStorageParallel();
+				
+				b_simZone = Calendar.getInstance().getTimeInMillis();
+				zoningParallel.sim();
+				e_simZone = Calendar.getInstance().getTimeInMillis();
+				t_simZone = e_simZone - b_simZone;
+				System.out.println("Zoning Storage Parallel Simualtion Time ="+t_simZone);
+				
+
+			} 
+			
+			else if (storageMode.equals(GraphPartitionStorage)) {
 				GraphPartitionStorage graphpartition = new org.StorageMode.GraphPartitionStorage();
 				graphpartition.sim();
 				

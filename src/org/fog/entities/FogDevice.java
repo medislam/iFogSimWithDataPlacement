@@ -948,6 +948,11 @@ public class FogDevice extends PowerDatacenter {
 			Log.writeInLogFile(this.getName(), "Zonnig Storage -> zonnig Fog node will be choosed!");
 			return DataAllocation.getEmplacementNodeId(tupleType);
 			
+		}else if(DataPlacement.storageMode.equals(DataPlacement.ZoningStorageParallel)){
+			////*System.out.println("Zonnig Storage Parallel -> zonnig Fog node will be choosed!");
+			Log.writeInLogFile(this.getName(), "Zonnig Storage Parallel -> zonnig Fog node will be choosed!");
+			return DataAllocation.getEmplacementNodeId(tupleType);
+			
 		}else if(DataPlacement.storageMode.equals(DataPlacement.GraphPartitionStorage)){
 			////*System.out.println("Graph Partition Storage -> a Fog node will be choosed!");
 			Log.writeInLogFile(this.getName(), "Graph Partition Storage -> a Fog node will be choosed!");

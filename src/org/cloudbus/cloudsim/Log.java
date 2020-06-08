@@ -169,18 +169,19 @@ public class Log {
 	}
 	
 	public static void writeInLogFile(String devName, String msg) {
-		FileWriter lpFile;
-		try {
-			lpFile = new FileWriter("Log/logFile"+DataPlacement.nb_HGW+".txt", true);
-			BufferedWriter fw = new BufferedWriter(lpFile);
-			fw.write(devName+"\t"+msg+"\n");
-			fw.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
+		if(DataPlacement.generate_log_file) {
+			FileWriter lpFile;
+			try {
+				lpFile = new FileWriter("Log/logFile"+DataPlacement.nb_HGW+".txt", true);
+				BufferedWriter fw = new BufferedWriter(lpFile);
+				fw.write(devName+"\t"+msg+"\n");
+				fw.close();
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
-		
 	}
 	
 	public static void initializeLogFile() {

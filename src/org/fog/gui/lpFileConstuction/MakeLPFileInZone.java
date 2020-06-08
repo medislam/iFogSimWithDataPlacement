@@ -16,7 +16,7 @@ public class MakeLPFileInZone{
 	
 	public  static int base;
 	
-	private static final int nb_thread = 32;
+	private static final int nb_thread = 1;
 	
 	public  static float [][] write_basis_laenty; 
 	public  static float [][] read_basis_laenty;
