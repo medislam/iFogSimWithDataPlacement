@@ -35,6 +35,20 @@ public class Log{
 		
 	}
 	
+	public static void writeSimulationTimeParallel(int nb_HGW, String log) throws IOException{
+		FileWriter lpFile = new FileWriter("Stats/simulationTimeParallel"+nb_HGW+"_"+DataPlacement.nb_DataCons_By_DataProd, true);
+		try {
+			BufferedWriter fw = new BufferedWriter(lpFile);
+			fw.write(log+"\n");
+			fw.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
 	public static void writeDataAllocationStats(int nb_HGW, String log) throws IOException{
 		FileWriter lpFile = new FileWriter("Stats/dataAllocationStats"+nb_HGW+"_"+DataPlacement.nb_DataCons_By_DataProd, true);
 		try {

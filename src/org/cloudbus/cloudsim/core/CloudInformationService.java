@@ -14,6 +14,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.cloudbus.cloudsim.Log;
+import org.fog.Parallel.CloudSimParallel;
 
 /**
  * A Cloud Information Service (CIS) is an entity that provides cloud resource registration,
@@ -54,12 +55,25 @@ public class CloudInformationService extends SimEntity {
 		arList = new LinkedList<Integer>();
 		gisList = new LinkedList<Integer>();
 	}
+	
+	
+	
+	public CloudInformationService(String name, CloudSimParallel cloudSimParallel) throws Exception {
+		super(name, cloudSimParallel);
+		resList = new LinkedList<Integer>();
+		arList = new LinkedList<Integer>();
+		gisList = new LinkedList<Integer>();
+	}
 
 	/**
 	 * Starts the CloudInformationService entity.
 	 */
 	@Override
 	public void startEntity() {
+	}
+	
+	@Override
+	public void startEntity(CloudSimParallel cloudSimParallel) {
 	}
 
 	/**
@@ -133,6 +147,7 @@ public class CloudInformationService extends SimEntity {
 	public void shutdownEntity() {
 		notifyAllEntity();
 	}
+	
 
 	/**
 	 * Gets the list of all CloudResource IDs, including hostList that support Advance Reservation.

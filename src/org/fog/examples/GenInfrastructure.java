@@ -217,7 +217,7 @@ public class GenInfrastructure {
 				end_t = System.currentTimeMillis();
 				period_t = end_t - begin_t;
 				
-				org.fog.examples.Log.writeLog("BasisDelayMatrix:"+String.valueOf(period_t));
+				//org.fog.examples.Log.writeLog("BasisDelayMatrix:"+String.valueOf(period_t));
 				
 
 				/* saving the configurations */
@@ -468,11 +468,12 @@ public class GenInfrastructure {
 
 	private static Application createApplication(String appId, int userId, int nb_HGW){
 		
-		Application application = Application.createApplication(appId, userId); // creates an empty application model (empty directed graph)
+		//Application application = Application.createApplication(appId, userId); // creates an empty application model (empty directed graph)
 		
 		/*
 		 * Adding modules (vertices) to the application model (directed graph)
 		 */
+		Application application = new Application(appId, userId);
 		addServicesToApplication(application, nb_HGW);
 		
 		/*

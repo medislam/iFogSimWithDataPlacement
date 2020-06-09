@@ -249,6 +249,7 @@ public class BasisDelayMatrix {
 	
 	public static float getFatestLink(int src, int dest){
 		// -3 because fogIds start by 3 --> 0
+		//System.out.println("src:"+src+"\t dest:"+dest);
 		return mDelayMatrix[src-3][dest-3];
 	}
 
@@ -691,4 +692,17 @@ public class BasisDelayMatrix {
 	}
 
 
+	public static void printBasisDelayMatrix() throws IOException {
+			System.out.println("printBasisDelayMatrix");
+		
+			int maxRow = DataPlacement.nb_HGW + DataPlacement.nb_LPOP + DataPlacement.nb_RPOP + DataPlacement.nb_DC;
+			int maxCol = DataPlacement.nb_HGW + DataPlacement.nb_LPOP + DataPlacement.nb_RPOP + DataPlacement.nb_DC;
+			for (int row = 0; row < (maxRow); row++) {
+				for (int col = 0; col < (maxCol); col++) {
+					System.out.print(String.valueOf(BasisDelayMatrix.mDelayMatrix[row][col])+ "\t");
+				}
+				System.out.println();
+			}
+			
+	}
 }

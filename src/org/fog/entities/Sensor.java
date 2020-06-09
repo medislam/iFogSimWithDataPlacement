@@ -6,6 +6,7 @@ import org.cloudbus.cloudsim.UtilizationModelFull;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.fog.Parallel.CloudSimParallel;
 import org.fog.application.AppEdge;
 import org.fog.application.AppLoop;
 import org.fog.application.Application;
@@ -73,6 +74,15 @@ public class Sensor extends SimEntity{
 	 */
 	public Sensor(String name, String tupleType, int userId, String appId, Distribution transmitDistribution) {
 		super(name);
+		this.setAppId(appId);
+		this.setTransmitDistribution(transmitDistribution);
+		setTupleType(tupleType);
+		setSensorName(tupleType);
+		setUserId(userId);
+	}
+	
+	public Sensor(String name, String tupleType, int userId, String appId, Distribution transmitDistribution, CloudSimParallel cloudSimParallel) {
+		super(name, cloudSimParallel);
 		this.setAppId(appId);
 		this.setTransmitDistribution(transmitDistribution);
 		setTupleType(tupleType);
@@ -153,6 +163,13 @@ public class Sensor extends SimEntity{
 	
 	@Override
 	public void startEntity() {
+		send(gatewayDeviceId, CloudSim.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED, geoLocation);
+		//sendNow(gatewayDeviceId, FogEvents.SENSOR_JOINED, geoLocation);
+		send(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE);
+	}
+	
+	@Override
+	public void startEntity(CloudSimParallel cloudSimParallel) {
 		send(gatewayDeviceId, CloudSim.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED, geoLocation);
 		//sendNow(gatewayDeviceId, FogEvents.SENSOR_JOINED, geoLocation);
 		send(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE);

@@ -19,6 +19,7 @@ import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.fog.Parallel.CloudSimParallel;
 import org.fog.entities.Tuple;
 
 /**
@@ -82,6 +83,36 @@ public class Datacenter extends SimEntity {
 			List<Storage> storageList,
 			double schedulingInterval) throws Exception {
 		super(name);
+
+		setCharacteristics(characteristics);
+		setVmAllocationPolicy(vmAllocationPolicy);
+		setLastProcessTime(0.0);
+		setStorageList(storageList);
+		setVmList(new ArrayList<Vm>());
+		setSchedulingInterval(schedulingInterval);
+
+		for (Host host : getCharacteristics().getHostList()) {
+			host.setDatacenter(this);
+		}
+
+		// If this resource doesn't have any PEs then no useful at all
+		if (getCharacteristics().getNumberOfPes() == 0) {
+			throw new Exception(super.getName()
+					+ " : Error - this entity has no PEs. Therefore, can't process any Cloudlets.");
+		}
+
+		// stores id of this class
+		getCharacteristics().setId(super.getId());
+	}
+	
+	public Datacenter(
+			String name,
+			DatacenterCharacteristics characteristics,
+			VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList,
+			double schedulingInterval, 
+			CloudSimParallel cloudSimParallel) throws Exception {
+		super(name, cloudSimParallel);
 
 		setCharacteristics(characteristics);
 		setVmAllocationPolicy(vmAllocationPolicy);
@@ -1077,6 +1108,24 @@ public class Datacenter extends SimEntity {
 		int gisID = CloudSim.getEntityId(regionalCisName);
 		if (gisID == -1) {
 			gisID = CloudSim.getCloudInfoServiceEntityId();
+		}
+
+		// send the registration to GIS
+		////*System.out.println(getName()+" Sending an event to the CIS for resource registring!");
+		sendNow(gisID, CloudSimTags.REGISTER_RESOURCE, getId());
+		// Below method is for a child class to override
+		registerOtherEntity();
+	}
+	
+	@Override
+	public void startEntity(CloudSimParallel cloudSimParallel) {
+		Log.printLine(getName() + " is starting...");
+		// this resource should register to regional GIS.
+		// However, if not specified, then register to system GIS (the
+		// default CloudInformationService) entity.
+		int gisID = cloudSimParallel.getEntityId(regionalCisName);
+		if (gisID == -1) {
+			gisID = cloudSimParallel.getCloudInfoServiceEntityId();
 		}
 
 		// send the registration to GIS

@@ -8,6 +8,7 @@ import java.util.Map;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.fog.Parallel.CloudSimParallel;
 import org.fog.application.AppEdge;
 import org.fog.application.AppLoop;
 import org.fog.application.AppModule;
@@ -48,6 +49,20 @@ public class Controller extends SimEntity{
 		setSensors(sensors);
 		connectWithLatencies();
 	}
+	
+	public Controller(String name, List<FogDevice> fogDevices, List<Sensor> sensors, List<Actuator> actuators, ModuleMapping moduleMapping, CloudSimParallel cloudSimParallel) {
+		super(name, cloudSimParallel);
+		this.applications = new HashMap<String, Application>();
+		setAppLaunchDelays(new HashMap<String, Integer>());
+		setModuleMapping(moduleMapping);
+		for(FogDevice fogDevice : fogDevices){
+			fogDevice.setControllerId(getId());
+		}
+		setFogDevices(fogDevices);
+		setActuators(actuators);
+		setSensors(sensors);
+		connectWithLatencies();
+	}
 
 	
 
@@ -72,6 +87,25 @@ public class Controller extends SimEntity{
 	
 	@Override
 	public void startEntity() {
+		System.out.println("Start Controller...");
+		System.out.println("Number of applications ="+applications.size());
+		for(String appId : applications.keySet()){
+			if(getAppLaunchDelays().get(appId)==0)
+				processAppSubmit(applications.get(appId));
+			else
+				send(getId(), getAppLaunchDelays().get(appId), FogEvents.APP_SUBMIT, applications.get(appId));
+		}
+
+		//send(getId(), Config.RESOURCE_MANAGE_INTERVAL, FogEvents.CONTROLLER_RESOURCE_MANAGE);
+		send(getId(), Config.MAX_SIMULATION_TIME, FogEvents.STOP_SIMULATION);
+		
+		//for(FogDevice dev : getFogDevices())
+			//sendNow(dev.getId(), FogEvents.RESOURCE_MGMT);
+
+	}
+	
+	@Override
+	public void startEntity(CloudSimParallel cloudSimParallel) {
 		System.out.println("Start Controller...");
 		System.out.println("Number of applications ="+applications.size());
 		for(String appId : applications.keySet()){

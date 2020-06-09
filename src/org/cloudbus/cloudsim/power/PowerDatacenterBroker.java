@@ -12,6 +12,7 @@ import org.cloudbus.cloudsim.DatacenterBroker;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.fog.Parallel.CloudSimParallel;
 
 /**
  * A broker for the power package.
@@ -37,6 +38,10 @@ public class PowerDatacenterBroker extends DatacenterBroker {
 	 */
 	public PowerDatacenterBroker(String name) throws Exception {
 		super(name);
+	}
+	
+	public PowerDatacenterBroker(String name, CloudSimParallel cloudSimParallel) throws Exception {
+		super(name, cloudSimParallel);
 	}
 
 	/*

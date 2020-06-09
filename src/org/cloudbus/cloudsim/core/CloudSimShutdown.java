@@ -10,6 +10,8 @@ package org.cloudbus.cloudsim.core;
 
 import java.util.Calendar;
 
+import org.fog.Parallel.CloudSimParallel;
+
 /**
  * CloudimShutdown waits for termination of all CloudSim user entities to determine the end of
  * simulation. This class will be created by CloudSim upon initialisation of the simulation, i.e.
@@ -48,6 +50,13 @@ public class CloudSimShutdown extends SimEntity {
 		super(name);
 		this.numUser = numUser;
 	}
+	
+	public CloudSimShutdown(String name, int numUser, CloudSimParallel cloudSimParallel) throws Exception {
+		// NOTE: This entity doesn't use any I/O port.
+		// super(name, CloudSimTags.DEFAULT_BAUD_RATE);
+		super(name, cloudSimParallel);
+		this.numUser = numUser;
+	}
 
 	/**
 	 * The main method that shuts down hostList and Cloud Information Service (GIS). In addition,
@@ -76,6 +85,11 @@ public class CloudSimShutdown extends SimEntity {
 	 */
 	@Override
 	public void startEntity() {
+		// do nothing
+	}
+	
+	@Override
+	public void startEntity(CloudSimParallel cloudSimParallel) {
 		// do nothing
 	}
 

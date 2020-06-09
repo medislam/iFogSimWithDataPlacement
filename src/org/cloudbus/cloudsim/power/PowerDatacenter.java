@@ -21,6 +21,7 @@ import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.core.SimEvent;
 import org.cloudbus.cloudsim.core.predicates.PredicateType;
+import org.fog.Parallel.CloudSimParallel;
 
 /**
  * PowerDatacenter is a class that enables simulation of power-aware data centers.
@@ -68,6 +69,22 @@ public class PowerDatacenter extends Datacenter {
 			List<Storage> storageList,
 			double schedulingInterval) throws Exception {
 		super(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval);
+
+		setPower(0.0);
+		setDisableMigrations(false);
+		setCloudletSubmitted(-1);
+		setMigrationCount(0);
+	}
+	
+	
+	public PowerDatacenter(
+			String name,
+			DatacenterCharacteristics characteristics,
+			VmAllocationPolicy vmAllocationPolicy,
+			List<Storage> storageList,
+			double schedulingInterval,
+			CloudSimParallel cloudSimParallel) throws Exception {
+		super(name, characteristics, vmAllocationPolicy, storageList, schedulingInterval, cloudSimParallel);
 
 		setPower(0.0);
 		setDisableMigrations(false);

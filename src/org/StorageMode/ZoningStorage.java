@@ -98,6 +98,7 @@ public class ZoningStorage {
 				System.out.println("\n******************Zone " + zone+ " ******************");
 				Log.writeInLogFile("DataPlacement","\n******************Zone " + zone+ " ******************");
 				Map<String, List<Integer>> zoneDevises = getZoneDevMap(zone, application);
+				printDevicesInZone(zoneDevises, zone);
 
 				/* generate write and read basis delay files */
 				delayMatrix.generateBasisWriteDelayFileInZone(DataPlacement.nb_HGW, zone,zoneDevises);
@@ -258,5 +259,17 @@ public class ZoningStorage {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private void printDevicesInZone(Map<String, List<Integer>> zoneDevises, int zone) {
+		System.out.println("Print Devices in Zone : "+zone);
+		for(String key : zoneDevises.keySet()) {
+			System.out.print(key+" : ");
+			for(int devId : zoneDevises.get(key)) {
+				System.out.print(devId+", ");
+			}
+			System.out.println();
+		}
+		
 	}
 }

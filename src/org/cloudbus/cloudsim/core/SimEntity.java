@@ -11,6 +11,8 @@ package org.cloudbus.cloudsim.core;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.NetworkTopology;
 import org.cloudbus.cloudsim.core.predicates.Predicate;
+import org.fog.Parallel.CloudSimParallel;
+import org.fog.examples.DataPlacement;
 
 /**
  * This class represents a simulation entity. An entity handles events and can send events to other
@@ -55,6 +57,18 @@ public abstract class SimEntity implements Cloneable {
 		id = -1;
 		state = RUNNABLE;
 		CloudSim.addEntity(this);
+		
+	}
+	
+	public SimEntity(String name, CloudSimParallel cloudSimParalle) {
+		if (name.indexOf(" ") != -1) {
+			throw new IllegalArgumentException("Entity names can't contain spaces.");
+		}
+		this.name = name;
+		id = -1;
+		state = RUNNABLE;
+		cloudSimParalle.addEntity(this);
+		
 	}
 
 	/**
@@ -92,6 +106,13 @@ public abstract class SimEntity implements Cloneable {
 		}
 		CloudSim.send(id, dest, delay, tag, data);
 	}
+	
+	public void schedule(int dest, double delay, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		if (!cloudSimParallel.running()) {
+			return;
+		}
+		cloudSimParallel.send(id, dest, delay, tag, data, cloudSimParallel);
+	}
 
 	/**
 	 * Send an event to another entity by id number and with <b>no</b> data. Note that the tag
@@ -103,6 +124,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void schedule(int dest, double delay, int tag) {
 		schedule(dest, delay, tag, null);
+	}
+	
+	public void schedule(int dest, double delay, int tag, CloudSimParallel cloudSimParallel) {
+		schedule(dest, delay, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -117,6 +142,10 @@ public abstract class SimEntity implements Cloneable {
 	public void schedule(String dest, double delay, int tag, Object data) {
 		schedule(CloudSim.getEntityId(dest), delay, tag, data);
 	}
+	
+	public void schedule(String dest, double delay, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		schedule(cloudSimParallel.getEntityId(dest), delay, tag, data, cloudSimParallel);
+	}
 
 	/**
 	 * Send an event to another entity through a port with a given name, with <b>no</b> data. Note
@@ -128,6 +157,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void schedule(String dest, double delay, int tag) {
 		schedule(dest, delay, tag, null);
+	}
+	
+	public void schedule(String dest, double delay, int tag, CloudSimParallel cloudSimParallel) {
+		schedule(dest, delay, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -141,6 +174,10 @@ public abstract class SimEntity implements Cloneable {
 	public void scheduleNow(int dest, int tag, Object data) {
 		schedule(dest, 0, tag, data);
 	}
+	
+	public void scheduleNow(int dest, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		schedule(dest, 0, tag, data, cloudSimParallel);
+	}
 
 	/**
 	 * Send an event to another entity by id number and with <b>no</b> data. Note that the tag
@@ -152,6 +189,11 @@ public abstract class SimEntity implements Cloneable {
 	public void scheduleNow(int dest, int tag) {
 		schedule(dest, 0, tag, null);
 	}
+	
+	public void scheduleNow(int dest, int tag, CloudSimParallel cloudSimParallel) {
+		schedule(dest, 0, tag, null, cloudSimParallel);
+	}
+
 
 	/**
 	 * Send an event to another entity through a port with a given name, with data. Note that the
@@ -164,6 +206,10 @@ public abstract class SimEntity implements Cloneable {
 	public void scheduleNow(String dest, int tag, Object data) {
 		schedule(CloudSim.getEntityId(dest), 0, tag, data);
 	}
+	
+	public void scheduleNow(String dest, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		schedule(cloudSimParallel.getEntityId(dest), 0, tag, data, cloudSimParallel);
+	}
 
 	/**
 	 * Send an event to another entity through a port with a given name, with <b>no</b> data. Note
@@ -174,6 +220,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void scheduleNow(String dest, int tag) {
 		schedule(dest, 0, tag, null);
+	}
+	
+	public void scheduleNow(String dest, int tag, CloudSimParallel cloudSimParallel) {
+		schedule(dest, 0, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -191,6 +241,13 @@ public abstract class SimEntity implements Cloneable {
 		}
 		CloudSim.sendFirst(id, dest, delay, tag, data);
 	}
+	
+	public void scheduleFirst(int dest, double delay, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		if (!cloudSimParallel.running()) {
+			return;
+		}
+		cloudSimParallel.sendFirst(id, dest, delay, tag, data);
+	}
 
 	/**
 	 * Send a high priority event to another entity by id number and with <b>no</b> data. Note that
@@ -202,6 +259,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void scheduleFirst(int dest, double delay, int tag) {
 		scheduleFirst(dest, delay, tag, null);
+	}
+	
+	public void scheduleFirst(int dest, double delay, int tag, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(dest, delay, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -216,6 +277,11 @@ public abstract class SimEntity implements Cloneable {
 	public void scheduleFirst(String dest, double delay, int tag, Object data) {
 		scheduleFirst(CloudSim.getEntityId(dest), delay, tag, data);
 	}
+	
+	public void scheduleFirst(String dest, double delay, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(cloudSimParallel.getEntityId(dest), delay, tag, data, cloudSimParallel);
+	}
+
 
 	/**
 	 * Send a high priority event to another entity through a port with a given name, with <b>no</b>
@@ -227,6 +293,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void scheduleFirst(String dest, double delay, int tag) {
 		scheduleFirst(dest, delay, tag, null);
+	}
+	
+	public void scheduleFirst(String dest, double delay, int tag, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(dest, delay, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -240,6 +310,10 @@ public abstract class SimEntity implements Cloneable {
 	public void scheduleFirstNow(int dest, int tag, Object data) {
 		scheduleFirst(dest, 0, tag, data);
 	}
+	
+	public void scheduleFirstNow(int dest, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(dest, 0, tag, data, cloudSimParallel);
+	}
 
 	/**
 	 * Send a high priority event to another entity by id number and with <b>no</b> data. Note that
@@ -250,6 +324,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void scheduleFirstNow(int dest, int tag) {
 		scheduleFirst(dest, 0, tag, null);
+	}
+	
+	public void scheduleFirstNow(int dest, int tag, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(dest, 0, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -263,6 +341,10 @@ public abstract class SimEntity implements Cloneable {
 	public void scheduleFirstNow(String dest, int tag, Object data) {
 		scheduleFirst(CloudSim.getEntityId(dest), 0, tag, data);
 	}
+	
+	public void scheduleFirstNow(String dest, int tag, Object data, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(cloudSimParallel.getEntityId(dest), 0, tag, data, cloudSimParallel);
+	}
 
 	/**
 	 * Send a high priority event to another entity through a port with a given name, with <b>no</b>
@@ -273,6 +355,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public void scheduleFirstNow(String dest, int tag) {
 		scheduleFirst(dest, 0, tag, null);
+	}
+	
+	public void scheduleFirstNow(String dest, int tag, CloudSimParallel cloudSimParallel) {
+		scheduleFirst(dest, 0, tag, null, cloudSimParallel);
 	}
 
 	/**
@@ -289,6 +375,16 @@ public abstract class SimEntity implements Cloneable {
 		}
 		CloudSim.pause(id, delay);
 	}
+	
+	public void pause(double delay, CloudSimParallel cloudSimParallel) {
+		if (delay < 0) {
+			throw new IllegalArgumentException("Negative delay supplied.");
+		}
+		if (!cloudSimParallel.running()) {
+			return;
+		}
+		cloudSimParallel.pause(id, delay);
+	}
 
 	/**
 	 * Count how many events matching a predicate are waiting in the entity's deferred queue.
@@ -299,6 +395,10 @@ public abstract class SimEntity implements Cloneable {
 	public int numEventsWaiting(Predicate p) {
 		return CloudSim.waiting(id, p);
 	}
+	
+	public int numEventsWaiting(Predicate p, CloudSimParallel cloudSimParallel) {
+		return cloudSimParallel.waiting(id, p);
+	}
 
 	/**
 	 * Count how many events are waiting in the entity's deferred queue.
@@ -307,6 +407,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	public int numEventsWaiting() {
 		return CloudSim.waiting(id, CloudSim.SIM_ANY);
+	}
+	
+	public int numEventsWaiting(CloudSimParallel cloudSimParallel) {
+		return cloudSimParallel.waiting(id, cloudSimParallel.SIM_ANY);
 	}
 
 	/**
@@ -322,6 +426,14 @@ public abstract class SimEntity implements Cloneable {
 
 		return CloudSim.select(id, p);
 	}
+	
+	public SimEvent selectEvent(Predicate p, CloudSimParallel cloudSimParallel) {
+		if (!cloudSimParallel.running()) {
+			return null;
+		}
+
+		return cloudSimParallel.select(id, p);
+	}
 
 	/**
 	 * Cancel the first event matching a predicate waiting in the entity's future queue.
@@ -335,6 +447,14 @@ public abstract class SimEntity implements Cloneable {
 		}
 
 		return CloudSim.cancel(id, p);
+	}
+	
+	public SimEvent cancelEvent(Predicate p, CloudSimParallel cloudSimParallel) {
+		if (!cloudSimParallel.running()) {
+			return null;
+		}
+
+		return cloudSimParallel.cancel(id, p);
 	}
 
 	/**
@@ -353,6 +473,16 @@ public abstract class SimEntity implements Cloneable {
 		}
 		return null;
 	}
+	
+	public SimEvent getNextEvent(Predicate p, CloudSimParallel cloudSimParallel) {
+		if (!cloudSimParallel.running()) {
+			return null;
+		}
+		if (numEventsWaiting(p, cloudSimParallel) > 0) {
+			return selectEvent(p, cloudSimParallel);
+		}
+		return null;
+	}
 
 	/**
 	 * Wait for an event matching a specific predicate. This method does not check the entity's
@@ -368,6 +498,15 @@ public abstract class SimEntity implements Cloneable {
 		CloudSim.wait(id, p);
 		state = WAITING;
 	}
+	
+	public void waitForEvent(Predicate p, CloudSimParallel cloudSimParallel) {
+		if (!cloudSimParallel.running()) {
+			return;
+		}
+
+		cloudSimParallel.wait(id, p);
+		state = WAITING;
+	}
 
 	/**
 	 * Get the first event waiting in the entity's deferred queue, or if there are none, wait for an
@@ -378,12 +517,18 @@ public abstract class SimEntity implements Cloneable {
 	public SimEvent getNextEvent() {
 		return getNextEvent(CloudSim.SIM_ANY);
 	}
+	
+	public SimEvent getNextEvent(CloudSimParallel cloudSimParallel) {
+		return getNextEvent(CloudSim.SIM_ANY, cloudSimParallel);
+	}
 
 	/**
 	 * This method is invoked by the {@link Simulation} class when the simulation is started. This
 	 * method should be responsible for starting the entity up.
 	 */
 	public abstract void startEntity();
+	
+	public abstract void startEntity(CloudSimParallel cloudSim);
 
 	/**
 	 * This method is invoked by the {@link Simulation} class whenever there is an event in the
@@ -449,7 +594,7 @@ public abstract class SimEntity implements Cloneable {
 	 * 
 	 * @return the state
 	 */
-	protected int getState() {
+	public int getState() {
 		return state;
 	}
 
@@ -480,7 +625,7 @@ public abstract class SimEntity implements Cloneable {
 	 * 
 	 * @param state the new state
 	 */
-	protected void setState(int state) {
+	public void setState(int state) {
 		this.state = state;
 	}
 
@@ -489,7 +634,7 @@ public abstract class SimEntity implements Cloneable {
 	 * 
 	 * @param id the new id
 	 */
-	protected void setId(int id) {
+	public void setId(int id) {
 		this.id = id;
 	}
 
@@ -498,7 +643,7 @@ public abstract class SimEntity implements Cloneable {
 	 * 
 	 * @param e the new event buffer
 	 */
-	protected void setEventBuffer(SimEvent e) {
+	public void setEventBuffer(SimEvent e) {
 		evbuf = e;
 	}
 
@@ -546,7 +691,37 @@ public abstract class SimEntity implements Cloneable {
 		
 		schedule(entityId, delay, cloudSimTag, data);
 	}
+	
+	
 
+	protected void send(int entityId, double delay, int cloudSimTag, Object data, CloudSimParallel cloudSimParallel) {
+		if (entityId < 0) {
+			return;
+		}
+
+		// if delay is -ve, then it doesn't make sense. So resets to 0.0
+		if (delay < 0) {
+			delay = 0;
+		}
+
+		if (Double.isInfinite(delay)) {
+			throw new IllegalArgumentException("The specified delay is infinite value");
+		}
+
+		if (entityId < 0) {
+			Log.printLine(getName() + ".send(): Error - " + "invalid entity id " + entityId);
+			return;
+		}
+
+		int srcId = getId();
+//		if (entityId != srcId) {// does not delay self messages
+//			delay += getNetworkDelay(srcId, entityId);
+//			//*System.out.println("delay="+delay+"   getNetworkDelay("+srcId+","+ entityId+") ="+getNetworkDelay(srcId, entityId)+
+//					"  new delay="+delay+getNetworkDelay(srcId, entityId));
+//		}
+		
+		schedule(entityId, delay, cloudSimTag, data, cloudSimParallel);
+	}
 	/**
 	 * Sends an event/message to another entity by <tt>delaying</tt> the simulation time from the
 	 * current time, with a tag representing the event type.
@@ -613,6 +788,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	protected void sendNow(int entityId, int cloudSimTag, Object data) {
 		send(entityId, 0, cloudSimTag, data);
+	}
+	
+	protected void sendNow(int entityId, int cloudSimTag, Object data, CloudSimParallel cloudSimParallel) {
+		send(entityId, 0, cloudSimTag, data, cloudSimParallel);
 	}
 
 	/**

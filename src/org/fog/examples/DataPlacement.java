@@ -21,6 +21,7 @@ import org.cloudbus.cloudsim.power.PowerHost;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 import org.cloudbus.cloudsim.sdn.overbooking.BwProvisionerOverbooking;
 import org.cloudbus.cloudsim.sdn.overbooking.PeProvisionerOverbooking;
+import org.fog.Parallel.CloudSimParallel;
 import org.fog.application.AppLoop;
 import org.fog.application.Application;
 import org.fog.entities.Actuator;
@@ -87,15 +88,15 @@ public class DataPlacement {
 	public static final long HGW_Storage = 1000000000; // 1 GB
 
 	/* infrastructure */
-	public static int nb_HGW=500; //6 HGW per LPOP
-	public static final int nb_LPOP = 50; //4 LPOP per RPOP
-	public static final int nb_RPOP = 10; //2 RPOP per DC
-	public static final int nb_DC = 5; //
+//	public static int nb_HGW=500; //6 HGW per LPOP
+//	public static final int nb_LPOP = 50; //4 LPOP per RPOP
+//	public static final int nb_RPOP = 10; //2 RPOP per DC
+//	public static final int nb_DC = 5; //
 
-//	public static int nb_HGW=12; //3 HGW per LPOP
-//	public static final int nb_LPOP = 4; //2 LPOP per RPOP
-//	public static final int nb_RPOP = 2; //2 RPOP per DC
-//	public static final int nb_DC = 1; //
+	public static int nb_HGW=8; //3 HGW per LPOP
+	public static final int nb_LPOP = 4; //2 LPOP per RPOP
+	public static final int nb_RPOP = 2; //2 RPOP per DC
+	public static final int nb_DC = 1; //
 	
 	public static final int nb_SnrPerHGW = 1;
 	public static final int nb_ActPerHGW = 1;
@@ -133,7 +134,7 @@ public class DataPlacement {
 	public static final List<String> storageModes = Arrays.asList(CloudStorage,ZoningStorage,ZoningStorageParallel);
 	//public static final List<String> storageModes = Arrays.asList(CloudStorage, ClosestNode);
 
-	public static final List<Integer> nb_zones_list = Arrays.asList(10);
+	public static final List<Integer> nb_zones_list = Arrays.asList(2);
 	public static final List<Integer> nb_partitions_list = Arrays.asList(2,5);
 
 	
@@ -169,7 +170,7 @@ public class DataPlacement {
 	public static Calendar calendar;
 	public static int num_user = 1; // number of cloud users
 	
-	public static boolean generate_log_file = false;
+	public static boolean generate_log_file = true;
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -224,6 +225,8 @@ public class DataPlacement {
 				e_simZone = Calendar.getInstance().getTimeInMillis();
 				t_simZone = e_simZone - b_simZone;
 				System.out.println("Zoning Storage Simualtion Time ="+t_simZone);
+				org.fog.examples.Log.writeSimulationTimeParallel(DataPlacement.nb_HGW,"consProd:"+ DataPlacement.nb_DataCons_By_DataProd + " Zoning Sim time:"+String.valueOf(t_simZone));
+
 
 			}else if (storageMode.equals(ZoningStorageParallel)) {
 				ZoningStorageParallel zoningParallel = new ZoningStorageParallel();
@@ -233,7 +236,8 @@ public class DataPlacement {
 				e_simZone = Calendar.getInstance().getTimeInMillis();
 				t_simZone = e_simZone - b_simZone;
 				System.out.println("Zoning Storage Parallel Simualtion Time ="+t_simZone);
-				
+				org.fog.examples.Log.writeSimulationTimeParallel(DataPlacement.nb_HGW,"consProd:"+ DataPlacement.nb_DataCons_By_DataProd + " Zoning Parallel Sim time:"+String.valueOf(t_simZone));
+
 
 			} 
 			
@@ -304,6 +308,50 @@ public class DataPlacement {
 			fogDevices.add(HGW);
 		}
 	}
+	
+	
+	
+	
+	public static void createFogDevices(int userId, String appId, CloudSimParallel cluodSimParallel) {
+		/* create Datacenters */
+		for (int i = 0; i < nb_DC; i++) {
+			// FogDevice DC = createFogDevice(fogId, nodeName, mips, ram, upBw,
+			// downBw, level, ratePerMips, busyPower, idlePower);
+			FogDevice DC = createFogDevice("DC" + i, 44800, 40000, 10000,
+					10000, 4, 0.01, 16 * 103, 16 * 83.25, cluodSimParallel);
+			DC.setParentId((int) -1);
+			fogDevices.add(DC);
+		}
+
+		/* create RPOP */
+		for (int i = 0; i < nb_RPOP; i++) {
+			FogDevice RPOP = createFogDevice("RPOP" + i, 2800, 4000, 10000,
+					10000, 3, 0.0, 107.339, 83.4333, cluodSimParallel);
+
+			RPOP.setParentId((i / (nb_RPOP / nb_DC)) + 3);
+			RPOP.setUplinkLatency(LatencyDCToRPOP);
+			fogDevices.add(RPOP);
+		}
+
+		/* create LPOP */
+		for (int i = 0; i < nb_LPOP; i++) {
+			FogDevice LPOP = createFogDevice("LPOP" + i, 2800, 4000, 10000,
+					10000, 2, 0.0, 107.339, 83.4333, cluodSimParallel);
+
+			LPOP.setParentId((i / (nb_LPOP / nb_RPOP)) + nb_DC + 3);
+			LPOP.setUplinkLatency(LatencyRPOPToLPOP);
+			fogDevices.add(LPOP);
+		}
+
+		for (int i = 0; i < nb_HGW; i++) {
+			FogDevice HGW = createFogDevice("HGW" + i, 2800, 4000, 10000,
+					10000, 1, 0.0, 107.339, 83.4333, cluodSimParallel);
+
+			HGW.setParentId((i / (nb_HGW / nb_LPOP)) + nb_DC + nb_RPOP + 3);
+			HGW.setUplinkLatency(LatencyLPOPToHGW);
+			fogDevices.add(HGW);
+		}
+	}
 
 	
 	/**
@@ -332,6 +380,34 @@ public class DataPlacement {
 			/* create actuators */
 			for (int k = 0; k < nb_ActPerHGW; k++, id_act++) {
 				Actuator act = new Actuator("a-" + id_act, userId, appId,"DISPLAY" + (int) (id_act));
+				actuators.add(act);
+				act.setGatewayDeviceId(HGW.getId());
+				act.setLatency(LatencyHGWToACT); 
+			}
+
+		}
+
+	}
+	
+	
+	public static void createSensorsAndActuators(int userId, String appId, CloudSimParallel cloudSimParallel) {
+		/* create HGW */
+		int id_snr = 0;
+		int id_act = 0;
+		for (int i = 0; i < nb_HGW; i++) {
+			FogDevice HGW = fogDevices.get(i + nb_DC + nb_RPOP + nb_LPOP);
+
+			/* create sensors */
+			for (int j = 0; j < nb_SnrPerHGW; j++, id_snr++) {
+				Sensor snr = new Sensor("s-" + id_snr, "TempSNR"+ (int) (id_snr), userId, appId,new DeterministicDistribution(SNR_TRANSMISSION_TIME), cloudSimParallel); 
+				sensors.add(snr);
+				snr.setGatewayDeviceId(HGW.getId());
+				snr.setLatency(LatencyHGWToSNR); 
+			}
+
+			/* create actuators */
+			for (int k = 0; k < nb_ActPerHGW; k++, id_act++) {
+				Actuator act = new Actuator("a-" + id_act, userId, appId,"DISPLAY" + (int) (id_act), cloudSimParallel);
 				actuators.add(act);
 				act.setGatewayDeviceId(HGW.getId());
 				act.setLatency(LatencyHGWToACT); 
@@ -396,6 +472,56 @@ public class DataPlacement {
 		try {
 			fogdevice = new FogDevice(nodeName, characteristics,new AppModuleAllocationPolicy(hostList), storageList,
 					right, left, getRightLatency(nodeName, right),getLeftLatency(nodeName, left), 10, upBw, downBw, 0,ratePerMips);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		fogdevice.setLevel(level);
+		return fogdevice;
+	}
+	
+	
+	private static FogDevice createFogDevice(String nodeName, long mips,
+			int ram, long upBw, long downBw, int level, double ratePerMips,
+			double busyPower, double idlePower, CloudSimParallel cloudSimParallel) {
+
+		List<Pe> peList = new ArrayList<Pe>();
+
+		// 3. Create PEs and add these into a list.
+		peList.add(new Pe(0, new PeProvisionerOverbooking(mips))); 
+
+		int hostId = FogUtils.generateEntityId();
+
+		long storage = storageAllocation(nodeName); // host storage
+		int bw = 10000;
+
+		PowerHost host = new PowerHost(hostId, new RamProvisionerSimple(ram),
+				new BwProvisionerOverbooking(bw), storage, peList,
+				new StreamOperatorScheduler(peList), new FogLinearPowerModel(busyPower, idlePower));
+
+		List<Host> hostList = new ArrayList<Host>();
+		hostList.add(host);
+
+		String arch = "x86"; // system architecture
+		String os = "Linux"; // operating system
+		String vmm = "Xen";
+		double time_zone = 10.0; // time zone this resource located
+		double cost = 3.0; // the cost of using processing in this resource
+		double costPerMem = 0.05; // the cost of using memory in this resource
+		double costPerStorage = 0.001; // the cost of using storage in this
+										// resource
+		double costPerBw = 0.0; // the cost of using bw in this resource
+		LinkedList<Storage> storageList = new LinkedList<Storage>(); 
+
+		FogDeviceCharacteristics characteristics = new FogDeviceCharacteristics(arch, os, vmm, host, time_zone, cost, costPerMem,costPerStorage, costPerBw);
+
+		int right = getRight(nodeName);
+		int left = getleft(nodeName);
+
+		FogDevice fogdevice = null;
+		try {
+			fogdevice = new FogDevice(nodeName, characteristics,new AppModuleAllocationPolicy(hostList), storageList,
+					right, left, getRightLatency(nodeName, right),getLeftLatency(nodeName, left), 10, upBw, downBw, 0,ratePerMips, cloudSimParallel);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

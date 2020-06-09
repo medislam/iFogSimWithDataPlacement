@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.cloudbus.cloudsim.Log;
+import org.cloudbus.cloudsim.core.CloudSim;
 import org.fog.application.Application;
 import org.fog.cplex.CallCplex;
 import org.fog.cplex.DataAllocation;
@@ -25,16 +26,19 @@ public class ThreadInZone extends Thread{
 	private int zone;
 	private DataAllocation dataAllocation;
 	private Map<String, List<Integer>> zoneDevises;
+	private CloudSimParallel cloudsimparallel;
 	
 	
 
-	public ThreadInZone(Application application, BasisDelayMatrix delayMatrix, int zone, DataAllocation dataAllocation, Map<String, List<Integer>> zoneDevises) {
+	public ThreadInZone(Application application, BasisDelayMatrix delayMatrix, int zone, DataAllocation dataAllocation, Map<String, List<Integer>> zoneDevises, CloudSimParallel cloudsimparallel) {
 		// TODO Auto-generated constructor stub
 		this.application=application;
 		this.delayMatrix=delayMatrix;
 		this.zone=zone;
 		this.dataAllocation=dataAllocation;
 		this.zoneDevises = zoneDevises;
+		this.cloudsimparallel = cloudsimparallel;
+		printDevicesInZone();
 	}
 	
 	public void run() {
@@ -97,6 +101,9 @@ public class ThreadInZone extends Thread{
 			/* recuperation of data allocation */
 			
 			dataAllocation.setDataAllocationMapInZone(DataPlacement.nb_HGW, zone,zoneDevises, application);
+			
+			cloudsimparallel.startSimulation(cloudsimparallel);
+			cloudsimparallel.stopSimulation(cloudsimparallel);
 		
 		} catch (IOException | InterruptedException e) {
 			// TODO Auto-generated catch block
@@ -133,5 +140,16 @@ public class ThreadInZone extends Thread{
 			e.printStackTrace();
 		}
 	}
-
+	
+	private void printDevicesInZone() {
+		System.out.println("Print Devices in Zone : "+zone);
+		for(String key : zoneDevises.keySet()) {
+			System.out.print(key+" : ");
+			for(int devId : zoneDevises.get(key)) {
+				System.out.print(devId+", ");
+			}
+			System.out.println();
+		}
+		
+	}
 }

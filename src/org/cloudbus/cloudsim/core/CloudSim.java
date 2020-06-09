@@ -133,6 +133,7 @@ public class CloudSim {
 
 			// set all the above entity IDs
 			cisId = cis.getId();
+			System.out.println("cisId cloudsim"+cisId);
 		} catch (IllegalArgumentException s) {
 			Log.printLine("CloudSim.init(): The simulation has been terminated due to an unexpected error");
 			Log.printLine(s.getMessage());
@@ -494,6 +495,7 @@ public class CloudSim {
 			e.setId(id);
 			entities.add(e);
 			entitiesByName.put(e.getName(), e);
+			//System.out.println("add entity to cloudSim Parallel : "+e.getName()+":"+e.getId());
 		}
 	}
 

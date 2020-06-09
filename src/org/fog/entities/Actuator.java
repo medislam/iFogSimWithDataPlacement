@@ -3,6 +3,7 @@ package org.fog.entities;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
+import org.fog.Parallel.CloudSimParallel;
 import org.fog.application.AppLoop;
 import org.fog.application.Application;
 import org.fog.utils.FogEvents;
@@ -36,10 +37,22 @@ public class Actuator extends SimEntity{
 		setUserId(userId);
 		setActuatorType(actuatorType);
 	}
+	
+	public Actuator(String name, int userId, String appId, String actuatorType, CloudSimParallel cloudSimParallel) {
+		super(name, cloudSimParallel);
+		this.setAppId(appId);
+		setUserId(userId);
+		setActuatorType(actuatorType);
+	}
 
 	@Override
 	public void startEntity() {
 		sendNow(gatewayDeviceId, FogEvents.ACTUATOR_JOINED, getLatency());
+	}
+	
+	@Override
+	public void startEntity(CloudSimParallel cloudSimParallel) {
+		sendNow(gatewayDeviceId, FogEvents.ACTUATOR_JOINED, getLatency(), cloudSimParallel);
 	}
 
 	@Override

@@ -13,6 +13,7 @@ import java.util.Map;
 import org.Results.SaveResults;
 import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudSim;
+import org.fog.Parallel.CloudSimParallel;
 import org.fog.Parallel.ThreadInZone;
 import org.fog.application.Application;
 import org.fog.cplex.CallCplex;
@@ -50,16 +51,19 @@ public class ZoningStorageParallel {
 			}
 			
 			org.fog.examples.Log.writeSolvingTime(DataPlacement.nb_HGW, "consProd:"+ DataPlacement.nb_DataCons_By_DataProd + "		storage mode:"+DataPlacement.ZoningStorage+ "		nb_zones:"+ DataPlacement.nb_zone);
-			CloudSim.init(DataPlacement.num_user, DataPlacement.calendar, DataPlacement.trace_flag);
+			//CloudSim.init(DataPlacement.num_user, DataPlacement.calendar, DataPlacement.trace_flag);
+			CloudSimParallel cloudsimparallel = new CloudSimParallel();
+			cloudsimparallel.init(DataPlacement.num_user, DataPlacement.calendar, DataPlacement.trace_flag, cloudsimparallel);
+			
 			String appId = "Data_Placement"; // identifier of the application
-			FogBroker broker = new FogBroker("broker");
+			FogBroker broker = new FogBroker("broker", cloudsimparallel);
 			System.out.println("Creating of the Fog devices!");
 			Log.writeInLogFile("DataPlacement","Creating of the Fog devices!");
-			DataPlacement.createFogDevices(broker.getId(), appId);
+			DataPlacement.createFogDevices(broker.getId(), appId, cloudsimparallel);
 
 			System.out.println("Creating of Sensors and Actuators!");
 			Log.writeInLogFile("DataPlacement","Creating of Sensors and Actuators!");
-			DataPlacement.createSensorsAndActuators(broker.getId(), appId);
+			DataPlacement.createSensorsAndActuators(broker.getId(), appId, cloudsimparallel);
 
 			/* Module deployment */
 			System.out.println("Creating and Adding modules to devices");
@@ -74,7 +78,7 @@ public class ZoningStorageParallel {
 
 			System.out.println("Controller!");
 			Log.writeInLogFile("DataPlacement", "Controller!");
-			Controller controller = new Controller("master-controller",DataPlacement.fogDevices, DataPlacement.sensors, DataPlacement.actuators, moduleMapping);
+			Controller controller = new Controller("master-controller",DataPlacement.fogDevices, DataPlacement.sensors, DataPlacement.actuators, moduleMapping, cloudsimparallel);
 			controller.submitApplication(application, 0);
 
 			TimeKeeper.getInstance().setSimulationStartTime(Calendar.getInstance().getTimeInMillis());
@@ -96,22 +100,27 @@ public class ZoningStorageParallel {
 			DataPlacement.nb_externCons = 0;
 			
 			DataAllocation dataAllocation = new DataAllocation();
+			//BasisDelayMatrix.printBasisDelayMatrix();
+			application.printFogDevices();
 			
 			// la table des threads
 			ThreadInZone [] tabThread = new ThreadInZone[DataPlacement.nb_zone];
 			
-			for (int zone = 0; zone < DataPlacement.nb_zone; zone++) {
+			//for (int zone = 0; zone < DataPlacement.nb_zone; zone++) {
+			for (int zone = 0; zone < 1; zone++) {
 				Map<String, List<Integer>> zoneDevises = getZoneDevMap(zone, application);
 				
-				ThreadInZone thrZone = new ThreadInZone(application, delayMatrix, zone, dataAllocation, zoneDevises);
+				ThreadInZone thrZone = new ThreadInZone(application, delayMatrix, zone, dataAllocation, zoneDevises, cloudsimparallel);
 				thrZone.start();
 				tabThread[zone] = thrZone;
 				System.out.println("Le thread zone :"+zone+" est démarré.");
+				
 
 				
 			}
 			
-			for (int zone = 0; zone < DataPlacement.nb_zone; zone++) {
+			//for (int zone = 0; zone < DataPlacement.nb_zone; zone++) {
+			for (int zone = 0; zone < 1; zone++) {
 				// attendre la fin du traitement
 				ThreadInZone thrZone = tabThread[zone];
 				thrZone.join();
@@ -120,16 +129,13 @@ public class ZoningStorageParallel {
 			}
 			
 			//DataAllocation.printDataAllocationMap(application);
-			org.fog.examples.Log.writeDataAllocationStats(DataPlacement.nb_HGW,"------------------------------------------\n"+
-					DataPlacement.nb_DataCons_By_DataProd+"\n"+DataPlacement.storageMode+"\n"+DataAllocation.dataAllocationStats(application));
+			//org.fog.examples.Log.writeDataAllocationStats(DataPlacement.nb_HGW,"------------------------------------------\n"+ DataPlacement.nb_DataCons_By_DataProd+"\n"+DataPlacement.storageMode+"\n"+DataAllocation.dataAllocationStats(application));
 			
-			org.fog.examples.Log.writeDataAllocationStatsExternZoneCons(DataPlacement.nb_HGW,"Zoning Storage "+DataPlacement.nb_zone
-					+"\n Nb extern cons :"+DataPlacement.nb_externCons);
+			//org.fog.examples.Log.writeDataAllocationStatsExternZoneCons(DataPlacement.nb_HGW,DataPlacement.storageMode+DataPlacement.nb_zone+"\n Nb extern cons :"+DataPlacement.nb_externCons);
 
-			System.out.println("----------------------");
-
-			CloudSim.startSimulation();
-			CloudSim.stopSimulation();
+			
+//			cloudsimparallel.startSimulation(cloudsimparallel);
+//			cloudsimparallel.stopSimulation(cloudsimparallel);
 			
 			System.out.println("End of simulation!");
 

@@ -943,4 +943,13 @@ public class Application {
 			////*System.out.println(mod.getSelectitvityAsString());
 		}
 	}
+	
+	public void printFogDevices() {
+		System.out.println("printFogDevicesIds");
+		for(FogDevice dev : DataPlacement.fogDevices) {
+			System.out.println(dev.getName()+":"+dev.getId()+"\t");
+		}
+		
+	}
+
 }

@@ -20,6 +20,7 @@ import org.cloudbus.cloudsim.core.SimEntity;
 import org.cloudbus.cloudsim.core.SimEvent;
 import org.cloudbus.cloudsim.lists.CloudletList;
 import org.cloudbus.cloudsim.lists.VmList;
+import org.fog.Parallel.CloudSimParallel;
 
 /**
  * DatacentreBroker represents a broker acting on behalf of a user. It hides VM management, as vm
@@ -81,6 +82,26 @@ public class DatacenterBroker extends SimEntity {
 	 */
 	public DatacenterBroker(String name) throws Exception {
 		super(name);
+
+		setVmList(new ArrayList<Vm>());
+		setVmsCreatedList(new ArrayList<Vm>());
+		setCloudletList(new ArrayList<Cloudlet>());
+		setCloudletSubmittedList(new ArrayList<Cloudlet>());
+		setCloudletReceivedList(new ArrayList<Cloudlet>());
+
+		cloudletsSubmitted = 0;
+		setVmsRequested(0);
+		setVmsAcks(0);
+		setVmsDestroyed(0);
+
+		setDatacenterIdsList(new LinkedList<Integer>());
+		setDatacenterRequestedIdsList(new ArrayList<Integer>());
+		setVmsToDatacentersMap(new HashMap<Integer, Integer>());
+		setDatacenterCharacteristicsList(new HashMap<Integer, DatacenterCharacteristics>());
+	}
+	
+	public DatacenterBroker(String name, CloudSimParallel cloudSimParallel) throws Exception {
+		super(name, cloudSimParallel);
 
 		setVmList(new ArrayList<Vm>());
 		setVmsCreatedList(new ArrayList<Vm>());

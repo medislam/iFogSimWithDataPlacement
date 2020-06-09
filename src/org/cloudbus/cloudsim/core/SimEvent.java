@@ -8,6 +8,8 @@
 
 package org.cloudbus.cloudsim.core;
 
+import org.fog.Parallel.CloudSimParallel;
+
 /**
  * This class represents a simulation event which is passed between the entities in the simulation.
  * 
@@ -78,7 +80,7 @@ public class SimEvent implements Cloneable, Comparable<SimEvent> {
 		this.data = edata;
 	}
 
-	SimEvent(int evtype, double time, int src) {
+	public SimEvent(int evtype, double time, int src) {
 		etype = evtype;
 		this.time = time;
 		entSrc = src;
@@ -102,8 +104,12 @@ public class SimEvent implements Cloneable, Comparable<SimEvent> {
 
 	@Override
 	public String toString() {
-		return "Event tag = " +tag+" -> " +CloudSimTags.getTagString(tag) + " serial="+serial +" source = " + CloudSim.getEntity(entSrc).getName() + " destination = "
-				+ CloudSim.getEntity(entDst).getName()+ "  event_Time "+eventTime();
+		return "Event tag = " +tag+" -> " +CloudSimTags.getTagString(tag) + " serial="+serial +" source = " + entSrc + " destination = "+ entDst+ "  event_Time "+eventTime();
+	}
+	
+	
+	public String toString(CloudSimParallel cloudSimParallel) {
+		return "Event tag = " +tag+" -> " +CloudSimTags.getTagString(tag) + " serial="+serial +" source = " + cloudSimParallel.getEntity(entSrc).getName() + " destination = " + cloudSimParallel.getEntity(entDst).getName()+ "  event_Time "+eventTime();
 	}
 
 	/**
