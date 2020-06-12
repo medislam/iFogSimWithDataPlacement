@@ -139,6 +139,64 @@ public class CloudInformationService extends SimEntity {
 				break;
 		}
 	}
+	
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		int id = -1;  // requester id
+		switch (ev.getTag()) {
+		// storing regional GIS id
+			case CloudSimTags.REGISTER_REGIONAL_GIS:
+				gisList.add((Integer) ev.getData());
+				break;
+
+			// request for all regional GIS list
+			case CloudSimTags.REQUEST_REGIONAL_GIS:
+
+				// Get ID of an entity that send this event
+				id = ((Integer) ev.getData()).intValue();
+
+				// Send the regional GIS list back to sender
+				super.send(id, 0L, ev.getTag(), gisList);
+				break;
+
+			// A resource is requesting to register.
+			case CloudSimTags.REGISTER_RESOURCE:
+				//System.out.println("registering of : "+CloudSim.getEntityName((Integer) ev.getData()));
+				resList.add((Integer) ev.getData());
+				//System.out.println("Resource List is: "+resList);
+				break;
+
+			// A resource that can support Advance Reservation
+			case CloudSimTags.REGISTER_RESOURCE_AR:
+				resList.add((Integer) ev.getData());
+				arList.add((Integer) ev.getData());
+				break;
+
+			// A Broker is requesting for a list of all hostList.
+			case CloudSimTags.RESOURCE_LIST:
+
+				// Get ID of an entity that send this event
+				id = ((Integer) ev.getData()).intValue();
+
+				// Send the resource list back to the sender
+				super.send(id, 0L, ev.getTag(), resList);
+				break;
+
+			// A Broker is requesting for a list of all hostList.
+			case CloudSimTags.RESOURCE_AR_LIST:
+
+				// Get ID of an entity that send this event
+				id = ((Integer) ev.getData()).intValue();
+
+				// Send the resource AR list back to the sender
+				super.send(id, 0L, ev.getTag(), arList, cloudSimParallel);
+				break;
+
+			default:
+				processOtherEvent(ev, cloudSimParallel);
+				break;
+		}
+	}
 
 	/**
 	 * Shutdowns the CloudInformationService.
@@ -146,6 +204,11 @@ public class CloudInformationService extends SimEntity {
 	@Override
 	public void shutdownEntity() {
 		notifyAllEntity();
+	}
+	
+	@Override
+	public void shutdownEntity(CloudSimParallel cloudSimParallel) {
+		notifyAllEntity(cloudSimParallel);
 	}
 	
 
@@ -262,6 +325,17 @@ public class CloudInformationService extends SimEntity {
 		Log.printLine("CloudInformationSevice.processOtherEvent(): " + "Unable to handle a request from "
 				+ CloudSim.getEntityName(ev.getSource()) + " with event tag = " + ev.getTag());
 	}
+	
+	
+	protected void processOtherEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		if (ev == null) {
+			Log.printLine("CloudInformationService.processOtherEvent(): "+ "Unable to handle a request since the event is null.");
+			return;
+		}
+
+		Log.printLine("CloudInformationSevice.processOtherEvent(): " + "Unable to handle a request from "
+				+ cloudSimParallel.getEntityName(ev.getSource()) + " with event tag = " + ev.getTag());
+	}
 
 	/**
 	 * Notifies the registered entities about the end of simulation. This method should be
@@ -320,6 +394,17 @@ public class CloudInformationService extends SimEntity {
 		resList.clear();
 		gisList.clear();
 	}
+	
+	private void notifyAllEntity(CloudSimParallel cloudSimParallel) {
+		Log.printLine(super.getName() + ": Notify all CloudSim entities for shutting down.");
+
+		signalShutdown(resList, cloudSimParallel);
+		signalShutdown(gisList, cloudSimParallel);
+
+		// reset the values
+		resList.clear();
+		gisList.clear();
+	}
 
 	/**
 	 * Sends a signal to all entity IDs mentioned in the given list.
@@ -345,5 +430,24 @@ public class CloudInformationService extends SimEntity {
 			super.send(id, 0L, CloudSimTags.END_OF_SIMULATION);
 		}
 	}
+	
+	protected void signalShutdown(Collection<Integer> list, CloudSimParallel cloudSimParallel) {
+		// checks whether a list is empty or not
+		if (list == null) {
+			return;
+		}
+
+		Iterator<Integer> it = list.iterator();
+		Integer obj = null;
+		int id = 0;     // entity ID
+
+		// Send END_OF_SIMULATION event to all entities in the list
+		while (it.hasNext()) {
+			obj = it.next();
+			id = obj.intValue();
+			super.send(id, 0L, CloudSimTags.END_OF_SIMULATION, cloudSimParallel);
+		}
+	}
+
 
 }

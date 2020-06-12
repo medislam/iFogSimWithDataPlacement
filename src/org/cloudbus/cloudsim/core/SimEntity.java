@@ -519,7 +519,7 @@ public abstract class SimEntity implements Cloneable {
 	}
 	
 	public SimEvent getNextEvent(CloudSimParallel cloudSimParallel) {
-		return getNextEvent(CloudSim.SIM_ANY, cloudSimParallel);
+		return getNextEvent(cloudSimParallel.SIM_ANY, cloudSimParallel);
 	}
 
 	/**
@@ -537,12 +537,16 @@ public abstract class SimEntity implements Cloneable {
 	 * @param ev the event to be processed by the entity
 	 */
 	public abstract void processEvent(SimEvent ev);
+	
+	
 
 	/**
 	 * This method is invoked by the {@link Simulation} before the simulation finishes. If you want
 	 * to save data in log files this is the method in which the corresponding code would be placed.
 	 */
 	public abstract void shutdownEntity();
+	
+	public abstract void shutdownEntity(CloudSimParallel cloudSimParallel);
 
 	public void run() {
 		SimEvent ev = evbuf != null ? evbuf : getNextEvent();
@@ -555,6 +559,22 @@ public abstract class SimEntity implements Cloneable {
 			}
 
 			ev = getNextEvent();
+		}
+
+		evbuf = null;
+	}
+	
+	public void run(CloudSimParallel cloudSimParallel) {
+		SimEvent ev = evbuf != null ? evbuf : getNextEvent(cloudSimParallel);
+
+		while (ev != null) {
+			System.out.println("\nProcessing ev of evbuf:"+ev.toString());
+			processEvent(ev, cloudSimParallel);
+			if (state != RUNNABLE) {
+				break;
+			}
+
+			ev = getNextEvent(cloudSimParallel);
 		}
 
 		evbuf = null;
@@ -663,6 +683,36 @@ public abstract class SimEntity implements Cloneable {
 	 * @pre data != null
 	 * @post $none
 	 */
+	
+	protected void send(int entityId, double delay, int cloudSimTag, Object data, CloudSimParallel cloudSimParallel) {
+		if (entityId < 0) {
+			return;
+		}
+
+		// if delay is -ve, then it doesn't make sense. So resets to 0.0
+		if (delay < 0) {
+			delay = 0;
+		}
+
+		if (Double.isInfinite(delay)) {
+			throw new IllegalArgumentException("The specified delay is infinite value");
+		}
+
+		if (entityId < 0) {
+			Log.printLine(getName() + ".send(): Error - " + "invalid entity id " + entityId);
+			return;
+		}
+
+		int srcId = getId();
+//		if (entityId != srcId) {// does not delay self messages
+//			delay += getNetworkDelay(srcId, entityId);
+//			//*System.out.println("delay="+delay+"   getNetworkDelay("+srcId+","+ entityId+") ="+getNetworkDelay(srcId, entityId)+
+//					"  new delay="+delay+getNetworkDelay(srcId, entityId));
+//		}
+		
+		schedule(entityId, delay, cloudSimTag, data, cloudSimParallel);
+	}
+	
 	protected void send(int entityId, double delay, int cloudSimTag, Object data) {
 		if (entityId < 0) {
 			return;
@@ -693,35 +743,6 @@ public abstract class SimEntity implements Cloneable {
 	}
 	
 	
-
-	protected void send(int entityId, double delay, int cloudSimTag, Object data, CloudSimParallel cloudSimParallel) {
-		if (entityId < 0) {
-			return;
-		}
-
-		// if delay is -ve, then it doesn't make sense. So resets to 0.0
-		if (delay < 0) {
-			delay = 0;
-		}
-
-		if (Double.isInfinite(delay)) {
-			throw new IllegalArgumentException("The specified delay is infinite value");
-		}
-
-		if (entityId < 0) {
-			Log.printLine(getName() + ".send(): Error - " + "invalid entity id " + entityId);
-			return;
-		}
-
-		int srcId = getId();
-//		if (entityId != srcId) {// does not delay self messages
-//			delay += getNetworkDelay(srcId, entityId);
-//			//*System.out.println("delay="+delay+"   getNetworkDelay("+srcId+","+ entityId+") ="+getNetworkDelay(srcId, entityId)+
-//					"  new delay="+delay+getNetworkDelay(srcId, entityId));
-//		}
-		
-		schedule(entityId, delay, cloudSimTag, data, cloudSimParallel);
-	}
 	/**
 	 * Sends an event/message to another entity by <tt>delaying</tt> the simulation time from the
 	 * current time, with a tag representing the event type.
@@ -736,6 +757,10 @@ public abstract class SimEntity implements Cloneable {
 	 */
 	protected void send(int entityId, double delay, int cloudSimTag) {
 		send(entityId, delay, cloudSimTag, null);
+	}
+	
+	protected void send2(int entityId, double delay, int cloudSimTag, CloudSimParallel cloudSimParallel) {
+		send(entityId, delay, cloudSimTag, null, cloudSimParallel);
 	}
 
 	/**
@@ -860,5 +885,10 @@ public abstract class SimEntity implements Cloneable {
 		}
 		return 0;
 	}
+	
+	public abstract void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel);
+
+	
+
 
 }

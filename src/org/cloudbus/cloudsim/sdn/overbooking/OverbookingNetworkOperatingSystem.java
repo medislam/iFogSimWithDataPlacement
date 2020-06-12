@@ -22,6 +22,7 @@ import org.cloudbus.cloudsim.sdn.NetworkOperatingSystem;
 import org.cloudbus.cloudsim.sdn.Node;
 import org.cloudbus.cloudsim.sdn.SDNHost;
 import org.cloudbus.cloudsim.sdn.TimedVm;
+import org.fog.Parallel.CloudSimParallel;
 
 public class OverbookingNetworkOperatingSystem extends NetworkOperatingSystem {
 
@@ -163,4 +164,11 @@ public class OverbookingNetworkOperatingSystem extends NetworkOperatingSystem {
 		
 		return newHost;		
 	}
+
+	@Override
+	public void startEntity(CloudSimParallel cloudSim) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

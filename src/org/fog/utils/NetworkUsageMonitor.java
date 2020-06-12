@@ -8,6 +8,7 @@ public class NetworkUsageMonitor {
 		networkUsage += latency*tupleNwSize;
 	}
 	
+	
 	public static double getNetworkUsage(){
 		return networkUsage;
 	}

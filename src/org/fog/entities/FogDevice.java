@@ -333,6 +333,59 @@ public class FogDevice extends PowerDatacenter {
 		}
 	}
 	
+	@Override
+	protected void processOtherEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		switch(ev.getTag()){
+		case FogEvents.TUPLE_ARRIVAL:
+			processTupleArrival(ev, cloudSimParallel);
+			break;
+		case FogEvents.LAUNCH_MODULE:
+			processModuleArrival(ev, cloudSimParallel);
+			break;
+		case FogEvents.RELEASE_OPERATOR:
+			processOperatorRelease(ev, cloudSimParallel);
+			break;
+		case FogEvents.SENSOR_JOINED:
+			processSensorJoining(ev, cloudSimParallel);
+			break;
+		case FogEvents.SEND_PERIODIC_TUPLE:
+			sendPeriodicTuple(ev, cloudSimParallel);
+			break;
+		case FogEvents.APP_SUBMIT:
+			processAppSubmit(ev, cloudSimParallel);
+			break;
+		case FogEvents.UPDATE_NORTH_TUPLE_QUEUE:
+			updateNorthTupleQueue(cloudSimParallel);
+			break;
+		case FogEvents.UPDATE_SOUTH_TUPLE_QUEUE:
+			updateSouthTupleQueue(cloudSimParallel);
+			break;
+		case FogEvents.ACTIVE_APP_UPDATE:
+			updateActiveApplications(ev, cloudSimParallel);
+			break;
+		case FogEvents.ACTUATOR_JOINED:
+			processActuatorJoined(ev, cloudSimParallel);
+			break;
+		case FogEvents.LAUNCH_MODULE_INSTANCE:
+			updateModuleInstanceCount(ev, cloudSimParallel);
+			break;
+		case FogEvents.RESOURCE_MGMT:
+			manageResources(ev, cloudSimParallel);
+			break;
+		case FogEvents.TUPLE_STORAGE:
+			processTupleStorage(ev, cloudSimParallel);
+			break;
+		case FogEvents.TUPLE_PROCESS:
+			processTupleProcess(ev, cloudSimParallel);
+			break;
+		case CloudSimTags.VM_DATACENTER_EVENT:
+			checkCloudletCompletion((Tuple) ev.getData(), cloudSimParallel);
+			break;
+		default:
+			break;
+		}
+	}
+	
 	private void processTupleStorage(SimEvent ev) {
 		// TODO Auto-generated method stub
 		////*System.out.println("Tuple Storage:"+ev.toString());
@@ -382,6 +435,57 @@ public class FogDevice extends PowerDatacenter {
 		
 		
 	}
+	
+	
+	private void processTupleStorage(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		// TODO Auto-generated method stub
+		////*System.out.println("Tuple Storage:"+ev.toString());
+		Log.writeInLogFile(this.getName(), "Tuple Storage:"+ev.toString());
+		Tuple tuple = (Tuple) ev.getData();
+		
+		////*System.out.println("tuple:"+tuple.toString());
+		Log.writeInLogFile(this.getName(), "tuple:"+tuple.toString());
+		
+		for(String destModuleName : tuple.getDestModuleName()){
+			List<String> dest = new ArrayList<String>();
+			dest.add(destModuleName);
+
+			String deviceName = ModuleMapping.getDeviceHostModule(destModuleName);
+					
+			Application application = applicationMap.get(tuple.getAppId());
+
+		
+			int destDevId = application.getFogDeviceByName(deviceName).getId();
+			float latency = BasisDelayMatrix.getFatestLink(getId(), destDevId);
+			
+			int ex = DataPlacement.Basis_Exchange_Unit;
+			long tupleDataSize = tuple.getCloudletFileSize();
+			int nb_Unit = (int) (tupleDataSize / ex);
+			if(tupleDataSize % ex != 0) nb_Unit++;
+			
+			//nb_Unit = 1;
+			LatencyStats.add_Overall_read_Letency(LatencyStats.getOverall_read_Latency()+latency*nb_Unit);
+			LatencyStats.add_Overall_Letency(LatencyStats.getOverall_Latency()+latency*nb_Unit);
+			
+			////*System.out.println("Node name:"+getName());
+			////*System.out.println("Overal read latency:"+LatencyStats.getOverall_read_Latency());
+			////*System.out.println("Overal write latency:"+LatencyStats.getOverall_write_Latency());
+			////*System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
+			
+			
+			Tuple tupleSend =  (Tuple) tuple.clone();
+
+			tupleSend.setDestModuleName(dest);
+			
+			////*System.out.println("tupleSend:"+tupleSend.toString());
+			Log.writeInLogFile(this.getName(), "tupleSend:"+tupleSend.toString());
+	
+			send(destDevId, latency*nb_Unit, FogEvents.TUPLE_PROCESS, tupleSend, cloudSimParallel);
+		}
+		
+		
+		
+	}
 
 	/**
 	 * Perform miscellaneous resource management tasks
@@ -391,12 +495,28 @@ public class FogDevice extends PowerDatacenter {
 		updateEnergyConsumption();
 		send(getId(), Config.RESOURCE_MGMT_INTERVAL, FogEvents.RESOURCE_MGMT);
 	}
+	
+	private void manageResources(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		updateEnergyConsumption(cloudSimParallel);
+		send(getId(), Config.RESOURCE_MGMT_INTERVAL, FogEvents.RESOURCE_MGMT,cloudSimParallel);
+	}
 
 	/**
 	 * Updating the number of modules of an application module on this device
 	 * @param ev instance of SimEvent containing the module and no of instances 
 	 */
 	private void updateModuleInstanceCount(SimEvent ev) {
+		ModuleLaunchConfig config = (ModuleLaunchConfig)ev.getData();
+		String appId = config.getModule().getAppId();
+		
+		if(!moduleInstanceCount.containsKey(appId))
+			moduleInstanceCount.put(appId, new HashMap<String, Integer>());
+		
+		moduleInstanceCount.get(appId).put(config.getModule().getName(), config.getInstanceCount());
+		////*System.out.println(getName()+ " Creating "+config.getInstanceCount()+" instances of module "+config.getModule().getName());
+	}
+	
+	private void updateModuleInstanceCount(SimEvent ev, CloudSimParallel cloudSimParallel) {
 		ModuleLaunchConfig config = (ModuleLaunchConfig)ev.getData();
 		String appId = config.getModule().getAppId();
 		
@@ -437,8 +557,43 @@ public class FogDevice extends PowerDatacenter {
 		}
 		send(getId(), edge.getPeriodicity(), FogEvents.SEND_PERIODIC_TUPLE, edge);
 	}
+	
+	private void sendPeriodicTuple(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		AppEdge edge = (AppEdge)ev.getData();
+		String srcModule = edge.getSource();
+		AppModule module = null;
+		for(Vm vm : getHost().getVmList()){
+			if(((AppModule)vm).getName().equals(srcModule)){
+				module=(AppModule)vm;
+				break;
+			}
+		}
+		if(module == null)
+			return;
+		
+		int instanceCount = getModuleInstanceCount().get(module.getAppId()).get(srcModule);
+		
+		/*
+		 * Since tuples sent through a DOWN application edge are anyways broadcasted, only UP tuples are replicated
+		 */
+		for(int i = 0;i<((edge.getDirection()==Tuple.UP)?instanceCount:1);i++){
+			Tuple tuple = applicationMap.get(module.getAppId()).createTuple(edge, getId());
+			////*System.out.println("Sending tuple :"+tuple.toString());
+			updateTimingsOnSending(tuple);
+			sendToSelf(tuple);			
+		}
+		send(getId(), edge.getPeriodicity(), FogEvents.SEND_PERIODIC_TUPLE, edge, cloudSimParallel);
+	}
 
 	protected void processActuatorJoined(SimEvent ev) {
+		int actuatorId = ev.getSource();
+//		double delay = (double)ev.getData();
+//		getAssociatedActuatorIds().add(new Pair<Integer, Double>(actuatorId, delay));
+		
+		getAssociatedActuatorIds().add(new Pair<Integer, Double>(actuatorId, (double) 10));
+	}
+	
+	protected void processActuatorJoined(SimEvent ev, CloudSimParallel cloudSimParallel) {
 		int actuatorId = ev.getSource();
 //		double delay = (double)ev.getData();
 //		getAssociatedActuatorIds().add(new Pair<Integer, Double>(actuatorId, delay));
@@ -448,6 +603,11 @@ public class FogDevice extends PowerDatacenter {
 
 	
 	protected void updateActiveApplications(SimEvent ev) {
+		Application app = (Application)ev.getData();
+		getActiveApplications().add(app.getAppId());
+	}
+	
+	protected void updateActiveApplications(SimEvent ev, CloudSimParallel cloudSimParallel) {
 		Application app = (Application)ev.getData();
 		getActiveApplications().add(app.getAppId());
 	}
@@ -524,60 +684,6 @@ public class FogDevice extends PowerDatacenter {
 		setLastProcessTime(currentTime);
 		return minTime;
 	}
-
-
-	protected void checkCloudletCompletion(){
-//		////*System.out.println("checkCloudletCompletion -> FogDevice.java");
-//		Log.writeInLogFile(this.getName(), "checkCloudletCompletion -> FogDevice.java");
-//		boolean cloudletCompleted = false;
-//		List<? extends Host> list = getVmAllocationPolicy().getHostList();
-//		for (int i = 0; i < list.size(); i++) {
-//			Host host = list.get(i);
-//			////*System.out.println("Host:"+i+"   hostId="+host.getId());
-//			Log.writeInLogFile(this.getName(), "Host:"+i+"   hostId="+host.getId());
-//			for (Vm vm : host.getVmList()) {
-//				////*System.out.println("VmId:"+vm.getId()+"    in HostId:"+host.getId());
-//				////*System.out.println("vm.getCloudletScheduler().isFinishedCloudlets()= "+vm.getCloudletScheduler().isFinishedCloudlets());
-//				Log.writeInLogFile(this.getName(), "VmId:"+vm.getId()+"    in HostId:"+host.getId());
-//				Log.writeInLogFile(this.getName(), "vm.getCloudletScheduler().isFinishedCloudlets()= "+vm.getCloudletScheduler().isFinishedCloudlets());
-//				
-//				while (vm.getCloudletScheduler().isFinishedCloudlets()) {
-//					//*System.out.println("vm.getCloudletScheduler().getNextFinishedCloudlet()");
-//					Log.writeInLogFile(this.getName(), "vm.getCloudletScheduler().getNextFinishedCloudlet()");
-//
-//					Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
-//					if (cl != null) {
-//						//*System.out.println("Cloudlet is not null");
-//						Log.writeInLogFile(this.getName(), "Cloudlet is not null");
-//						cloudletCompleted = true;
-//						Tuple tuple = (Tuple)cl;
-//						
-//						TimeKeeper.getInstance().tupleEndedExecution(tuple);
-//						Application application = getApplicationMap().get(tuple.getAppId());
-//						Logger.debug(getName(), "Completed execution of tuple "+tuple.getCloudletId()+"on "+tuple.getDestModuleName());
-//						
-//						List<Tuple> resultantTuples = application.getResultantTuples(tuple.getDestModuleName().get(0), tuple, getId());
-//						////*System.out.println("resultantTuples="+resultantTuples.size());
-//						Log.writeInLogFile(this.getName(), "resultantTuples="+resultantTuples.size());
-//						for(Tuple resTuple : resultantTuples){
-//							////*System.out.println("Tuple:"+resTuple.toString());
-//							Log.writeInLogFile(this.getName(), "Tuple:"+resTuple.toString());
-//							resTuple.setModuleCopyMap(new HashMap<String, Integer>(tuple.getModuleCopyMap()));
-//							resTuple.getModuleCopyMap().put(((AppModule)vm).getName(), vm.getId());
-//							updateTimingsOnSending(resTuple);
-//							sendToSelf(resTuple);
-//						}
-//						//sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cl);
-//					}else{
-//						//*System.out.println("Cloudlet is null");
-//						Log.writeInLogFile(this.getName(), "Cloudlet is null");
-//					}
-//				}
-//			}
-//		}
-//		if(cloudletCompleted)
-//			updateAllocatedMips(null);
-	}
 	
 	protected void checkCloudletCompletion(Tuple tuple){
 		////*System.out.println("checkCloudletCompletion -> FogDevice.java");
@@ -602,6 +708,29 @@ public class FogDevice extends PowerDatacenter {
 		}
 	}
 	
+	protected void checkCloudletCompletion(Tuple tuple, CloudSimParallel cloudSimParallel){
+		////*System.out.println("checkCloudletCompletion -> FogDevice.java");
+		Log.writeInLogFile(this.getName(), "Tuple is:"+tuple.toString());
+		Log.writeInLogFile(this.getName(), "checkCloudletCompletion -> FogDevice.java");
+				
+		Vm vm = getVmAllocationPolicy().getHostList().get(0).getVmList().get(0);
+		
+	
+		Application application = getApplicationMap().get(tuple.getAppId());
+		
+		List<Tuple> resultantTuples = application.getResultantTuples(tuple.getDestModuleName().get(0), tuple, getId());
+		////*System.out.println("resultantTuples="+resultantTuples.size());
+		Log.writeInLogFile(this.getName(), "resultantTuples="+resultantTuples.size());
+		for(Tuple resTuple : resultantTuples){
+			////*System.out.println("Tuple:"+resTuple.toString());
+			Log.writeInLogFile(this.getName(), "Tuple:"+resTuple.toString());
+			resTuple.setModuleCopyMap(new HashMap<String, Integer>(tuple.getModuleCopyMap()));
+			resTuple.getModuleCopyMap().put(((AppModule)vm).getName(), vm.getId());
+			updateTimingsOnSending(resTuple, cloudSimParallel);
+			sendToSelf(resTuple, cloudSimParallel);
+		}
+	}
+	
 	protected void updateTimingsOnSending(Tuple resTuple) {
 		// TODO ADD CODE FOR UPDATING TIMINGS WHEN A TUPLE IS GENERATED FROM A PREVIOUSLY RECIEVED TUPLE. 
 		// WILL NEED TO CHECK IF A NEW LOOP STARTS AND INSERT A UNIQUE TUPLE ID TO IT.
@@ -623,6 +752,28 @@ public class FogDevice extends PowerDatacenter {
 			}
 		}
 	}
+	
+	protected void updateTimingsOnSending(Tuple resTuple, CloudSimParallel cloudSimParallel) {
+		// TODO ADD CODE FOR UPDATING TIMINGS WHEN A TUPLE IS GENERATED FROM A PREVIOUSLY RECIEVED TUPLE. 
+		// WILL NEED TO CHECK IF A NEW LOOP STARTS AND INSERT A UNIQUE TUPLE ID TO IT.
+		String srcModule = resTuple.getSrcModuleName();
+		String destModule = resTuple.getDestModuleName().get(0);
+		////*System.out.println("udpateTimingsOnSending Tuple");
+		
+		for(AppLoop loop : getApplicationMap().get(resTuple.getAppId()).getLoops()){
+			if(loop.hasEdge(srcModule, destModule) && loop.isStartModule(srcModule)){
+				int tupleId = TimeKeeper.getInstance().getUniqueId();
+				resTuple.setActualTupleId(tupleId);
+				if(!TimeKeeper.getInstance().getLoopIdToTupleIds().containsKey(loop.getLoopId()))
+					TimeKeeper.getInstance().getLoopIdToTupleIds().put(loop.getLoopId(), new ArrayList<Integer>());
+				TimeKeeper.getInstance().getLoopIdToTupleIds().get(loop.getLoopId()).add(tupleId);
+				TimeKeeper.getInstance().getEmitTimes().put(tupleId, cloudSimParallel.clock());
+				
+				//Logger.debug(getName(), "\tSENDING\t"+tuple.getActualTupleId()+"\tSrc:"+srcModule+"\tDest:"+destModule);
+				
+			}
+		}
+	}
 
 	protected int getChildIdWithRouteTo(int targetDeviceId){
 		for(Integer childId : getChildrenIds()){
@@ -634,10 +785,28 @@ public class FogDevice extends PowerDatacenter {
 		return -1;
 	}
 	
+	protected int getChildIdWithRouteTo(int targetDeviceId,  CloudSimParallel cloudSimParallel){
+		for(Integer childId : getChildrenIds()){
+			if(targetDeviceId == childId)
+				return childId;
+			if(((FogDevice)cloudSimParallel.getEntity(childId)).getChildIdWithRouteTo(targetDeviceId) != -1)
+				return childId;
+		}
+		return -1;
+	}
+	
 	protected int getChildIdForTuple(Tuple tuple){
 		if(tuple.getDirection() == Tuple.ACTUATOR){
 			int gatewayId = ((Actuator)CloudSim.getEntity(tuple.getActuatorId())).getGatewayDeviceId();
 			return getChildIdWithRouteTo(gatewayId);
+		}
+		return -1;
+	}
+	
+	protected int getChildIdForTuple(Tuple tuple, CloudSimParallel cloudSimParallel){
+		if(tuple.getDirection() == Tuple.ACTUATOR){
+			int gatewayId = ((Actuator)cloudSimParallel.getEntity(tuple.getActuatorId())).getGatewayDeviceId();
+			return getChildIdWithRouteTo(gatewayId, cloudSimParallel);
 		}
 		return -1;
 	}
@@ -657,6 +826,24 @@ public class FogDevice extends PowerDatacenter {
 		}
 		
 		updateEnergyConsumption();
+		
+	}
+	
+	protected void updateAllocatedMips(String incomingOperator, CloudSimParallel cloudSimParallel){
+		getHost().getVmScheduler().deallocatePesForAllVms();
+		for(final Vm vm : getHost().getVmList()){
+			if(vm.getCloudletScheduler().runningCloudlets() > 0 || ((AppModule)vm).getName().equals(incomingOperator)){
+				getHost().getVmScheduler().allocatePesForVm(vm, new ArrayList<Double>(){
+					protected static final long serialVersionUID = 1L;
+				{add((double) getHost().getTotalMips());}});
+			}else{
+				getHost().getVmScheduler().allocatePesForVm(vm, new ArrayList<Double>(){
+					protected static final long serialVersionUID = 1L;
+				{add(0.0);}});
+			}
+		}
+		
+		updateEnergyConsumption(cloudSimParallel);
 		
 	}
 	
@@ -688,8 +875,42 @@ public class FogDevice extends PowerDatacenter {
 		lastUtilization = Math.min(1, totalMipsAllocated/getHost().getTotalMips());
 		lastUtilizationUpdateTime = timeNow;
 	}
+	
+	private void updateEnergyConsumption(CloudSimParallel cloudSimParallel) {
+		////*System.out.println("update energy consumption and cost on device :"+getName());
+		double totalMipsAllocated = 0;
+		for(final Vm vm : getHost().getVmList()){
+			AppModule operator = (AppModule)vm;
+			operator.updateVmProcessing(cloudSimParallel.clock(), getVmAllocationPolicy().getHost(operator).getVmScheduler().getAllocatedMipsForVm(operator));
+			totalMipsAllocated += getHost().getTotalAllocatedMipsForVm(vm);
+		}
+		
+		double timeNow = cloudSimParallel.clock();
+		double currentEnergyConsumption = getEnergyConsumption();
+		double newEnergyConsumption = currentEnergyConsumption + (timeNow-lastUtilizationUpdateTime)*getHost().getPowerModel().getPower(lastUtilization);
+		setEnergyConsumption(newEnergyConsumption);
+	
+		/*if(getName().equals("d-0")){
+			////*System.out.println("------------------------");
+			////*System.out.println("Utilization = "+lastUtilization);
+			////*System.out.println("Power = "+getHost().getPowerModel().getPower(lastUtilization));
+			////*System.out.println(timeNow-lastUtilizationUpdateTime);
+		}*/
+		
+		double currentCost = getTotalCost();
+		double newcost = currentCost + (timeNow-lastUtilizationUpdateTime)*getRatePerMips()*lastUtilization*getHost().getTotalMips();
+		setTotalCost(newcost);
+		
+		lastUtilization = Math.min(1, totalMipsAllocated/getHost().getTotalMips());
+		lastUtilizationUpdateTime = timeNow;
+	}
 
 	protected void processAppSubmit(SimEvent ev) {
+		Application app = (Application)ev.getData();
+		applicationMap.put(app.getAppId(), app);
+	}
+	
+	protected void processAppSubmit(SimEvent ev, CloudSimParallel cloudSimParallel) {
 		Application app = (Application)ev.getData();
 		applicationMap.put(app.getAppId(), app);
 	}
@@ -705,6 +926,13 @@ public class FogDevice extends PowerDatacenter {
 	
 	protected void updateCloudTraffic(){
 		int time = (int)CloudSim.clock()/1000;
+		if(!cloudTrafficMap.containsKey(time))
+			cloudTrafficMap.put(time, 0);
+		cloudTrafficMap.put(time, cloudTrafficMap.get(time)+1);
+	}
+	
+	protected void updateCloudTraffic(CloudSimParallel cloudSimParallel){
+		int time = (int)cloudSimParallel.clock()/1000;
 		if(!cloudTrafficMap.containsKey(time))
 			cloudTrafficMap.put(time, 0);
 		cloudTrafficMap.put(time, cloudTrafficMap.get(time)+1);
@@ -742,6 +970,46 @@ public class FogDevice extends PowerDatacenter {
 				////*System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
 				
 				send(actuatorId, delay * nb_Unit, FogEvents.TUPLE_PROCESS, tuple);
+				return;
+			}
+		}
+//		for(int childId : getChildrenIds()){
+//			sendDown(tuple, childId);
+//		}
+	}
+	
+	protected void sendTupleToActuator(Tuple tuple, CloudSimParallel cloudSimParallel){
+		/*for(Pair<Integer, Double> actuatorAssociation : getAssociatedActuatorIds()){
+			int actuatorId = actuatorAssociation.getFirst();
+			double delay = actuatorAssociation.getSecond();
+			if(actuatorId == tuple.getActuatorId()){
+				send(actuatorId, delay, FogEvents.TUPLE_ARRIVAL, tuple);
+				return;
+			}
+		}
+		int childId = getChildIdForTuple(tuple);
+		if(childId != -1)
+			sendDown(tuple, childId);*/
+		
+		for(Pair<Integer, Double> actuatorAssociation : getAssociatedActuatorIds()){
+			int actuatorId = actuatorAssociation.getFirst();
+			double delay = actuatorAssociation.getSecond();
+			String actuatorType = ((Actuator)cloudSimParallel.getEntity(actuatorId)).getActuatorType();
+			if(tuple.getDestModuleName().get(0).equals(actuatorType)){
+				int ex = DataPlacement.Basis_Exchange_Unit;
+				long tupleDataSize = tuple.getCloudletFileSize();
+				int nb_Unit = (int) (tupleDataSize / ex);
+				if(tupleDataSize % ex != 0) nb_Unit++;
+			
+//				LatencyStats.add_Overall_read_Letency(LatencyStats.getOverall_read_Latency()+delay*nb_Unit);
+//				LatencyStats.add_Overall_Letency(LatencyStats.getOverall_Latency()+delay*nb_Unit);
+				
+				////*System.out.println("Node name:"+getName());
+				////*System.out.println("Overal read latency:"+LatencyStats.getOverall_read_Latency());
+				////*System.out.println("Overal write latency:"+LatencyStats.getOverall_write_Latency());
+				////*System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
+				
+				send(actuatorId, delay * nb_Unit, FogEvents.TUPLE_PROCESS, tuple, cloudSimParallel);
 				return;
 			}
 		}
@@ -816,6 +1084,80 @@ public class FogDevice extends PowerDatacenter {
 		}
 		
 	}
+	
+	protected void processTupleProcess(SimEvent ev, CloudSimParallel cloudSimParallel){
+
+		System.out.println("processTupleProcess: process tuple and send vm-data-center to self");
+		Log.writeInLogFile(this.getName(), "processTupleProcess: process tuple and send vm-data-center to self");
+		Tuple tuple = (Tuple)ev.getData();
+		System.out.println("Tuple:"+tuple.toString());
+		Log.writeInLogFile(this.getName(), "Tuple:"+tuple.toString());
+		if(ev.getDestination()!=getId()){
+			System.out.println("Error!!! ev.Destination Id:"+ev.getDestination()+" is different to the Entity Id"+getId());
+			Log.writeInLogFile(this.getName(), "Error!!! ev.Destination Id:"+ev.getDestination()+" is different to the Entity Id"+getId());
+			System.exit(0);
+		}
+
+
+		if(ev.getSource()!=getId()){
+			/* Send tuple ack */
+			////*System.out.println("Sending Tuple Ack to evt source!");
+			//Log.writeInLogFile(this.getName(), "Sending Tuple Ack to evt source!");
+			//send(ev.getSource(), CloudSim.getMinTimeBetweenEvents(), FogEvents.TUPLE_ACK);
+		}
+		
+		
+		
+		
+		List<String> lisapp = appToModulesMap.get(tuple.getAppId());
+		
+		System.out.println("lisapp"+lisapp);
+		System.out.println("appToModulesMap print");
+		for(String app : appToModulesMap.keySet()) {
+			System.out.println("list of module:"+appToModulesMap.get(app));
+		}
+		
+		if(lisapp.contains(tuple.getDestModuleName().get(0))){
+			/* Search the destination module (vm) in this host */	
+			int vmId = -1;
+			for(Vm vm : getHost().getVmList()){
+				if(((AppModule)vm).getName().equals(tuple.getDestModuleName().get(0))){
+					vmId = vm.getId();
+					break;
+				}
+			}
+			
+			
+			
+			Application application = applicationMap.get(tuple.getAppId());
+			String deviceName = ModuleMapping.getDeviceHostModule(tuple.getDestModuleName().get(0));
+			//////*System.out.println(deviceName);
+			
+			int destDevId = application.getFogDeviceByName(deviceName).getId();
+			
+			if(destDevId != getId()){
+				//*System.out.println("Error! Tuple destination module is not deployed in this entity! ->"+destDevId+"   !=   "+getId());
+				System.exit(0);
+			}
+			
+			
+			if(vmId < 0 || (tuple.getModuleCopyMap().containsKey(tuple.getDestModuleName().get(0)) &&  tuple.getModuleCopyMap().get(tuple.getDestModuleName().get(0))!=vmId )){
+				//*System.out.println("Error! vm Id < 0 or ...");
+				Log.writeInLogFile(this.getName(), "Error! vm Id < 0 or ...");
+				System.exit(0);
+			}
+			
+
+			tuple.setVmId(vmId);
+			//Logger.error(getName(), "Executing tuple for operator " + moduleName);
+			
+			//updateTimingsOnReceipt(tuple);
+			
+			executeTuple(ev, tuple.getDestModuleName().get(0), cloudSimParallel);
+			
+		}
+		
+	}
 
 	protected void processTupleArrival(SimEvent ev){
 		////*System.out.println("processTupleArrival: for send tuple to other entites...");
@@ -834,6 +1176,30 @@ public class FogDevice extends PowerDatacenter {
 		if(tuple.getDestModuleName()!=null){
 			if(tuple.getDirection() == Tuple.UP)
 				sendUp(tuple);
+			}else{
+					////*System.out.println(getName()+"\tError! There is no destination module! for tupel:"+ev.toString());
+					Log.writeInLogFile(this.getName(), "Error! There is no destination module! for tupel:"+ev.toString());
+					System.exit(0);
+			}
+	}
+	
+	protected void processTupleArrival(SimEvent ev, CloudSimParallel cloudSimParallel){
+		////*System.out.println("processTupleArrival: for send tuple to other entites...");
+		Log.writeInLogFile(this.getName(), "processTupleArrival: for send tuple to other entites...");
+		Tuple tuple = (Tuple)ev.getData();
+		//*System.out.println("Tuple:"+tuple.toString());
+		Log.writeInLogFile(this.getName(), "Tuple:"+tuple.toString());
+		Logger.debug(getName(), "Received tuple "+tuple.getCloudletId()+"with tupleType = "+tuple.getTupleType()+"\t| Source : "+cloudSimParallel.getEntityName(ev.getSource())+"|Dest : "+cloudSimParallel.getEntityName(ev.getDestination()));
+	
+		
+		if(tuple.getDirection() == Tuple.ACTUATOR){
+			sendTupleToActuator(tuple, cloudSimParallel);
+			return;
+		}
+		
+		if(tuple.getDestModuleName()!=null){
+			if(tuple.getDirection() == Tuple.UP)
+				sendUp(tuple, cloudSimParallel);
 			}else{
 					////*System.out.println(getName()+"\tError! There is no destination module! for tupel:"+ev.toString());
 					Log.writeInLogFile(this.getName(), "Error! There is no destination module! for tupel:"+ev.toString());
@@ -869,9 +1235,42 @@ public class FogDevice extends PowerDatacenter {
 		}
 
 	}
+	
+	protected void updateTimingsOnReceipt(Tuple tuple, CloudSimParallel cloudSimParallel) {
+		////*System.out.println("updateTimingsOnReceipt -> FogDevice.java");
+		Log.writeInLogFile(this.getName(), "updateTimingsOnReceipt -> FogDevice.java");
+		Application app = getApplicationMap().get(tuple.getAppId());
+		String srcModule = tuple.getSrcModuleName();
+		String destModule = tuple.getDestModuleName().get(0);
+		List<AppLoop> loops = app.getLoops();
+		for(AppLoop loop : loops){
+			if(loop.hasEdge(srcModule, destModule) && loop.isEndModule(destModule)){				
+				Double startTime = TimeKeeper.getInstance().getEmitTimes().get(tuple.getActualTupleId());
+				if(startTime==null)
+					break;
+				if(!TimeKeeper.getInstance().getLoopIdToCurrentAverage().containsKey(loop.getLoopId())){
+					TimeKeeper.getInstance().getLoopIdToCurrentAverage().put(loop.getLoopId(), 0.0);
+					TimeKeeper.getInstance().getLoopIdToCurrentNum().put(loop.getLoopId(), 0);
+				}
+				double currentAverage = TimeKeeper.getInstance().getLoopIdToCurrentAverage().get(loop.getLoopId());
+				int currentCount = TimeKeeper.getInstance().getLoopIdToCurrentNum().get(loop.getLoopId());
+				double delay = cloudSimParallel.clock()- TimeKeeper.getInstance().getEmitTimes().get(tuple.getActualTupleId());
+				TimeKeeper.getInstance().getEmitTimes().remove(tuple.getActualTupleId());
+				double newAverage = (currentAverage*currentCount + delay)/(currentCount+1);
+				TimeKeeper.getInstance().getLoopIdToCurrentAverage().put(loop.getLoopId(), newAverage);
+				TimeKeeper.getInstance().getLoopIdToCurrentNum().put(loop.getLoopId(), currentCount+1);
+				break;
+			}
+		}
+
+	}
 
 	protected void processSensorJoining(SimEvent ev){
 		send(ev.getSource(), CloudSim.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED);
+	}
+	
+	protected void processSensorJoining(SimEvent ev, CloudSimParallel cloudSimParallel){
+		send(ev.getSource(), cloudSimParallel.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED, cloudSimParallel);
 	}
 	
 	protected void executeTuple(SimEvent ev, String operatorId){
@@ -886,6 +1285,25 @@ public class FogDevice extends PowerDatacenter {
 		TimeKeeper.getInstance().tupleStartedExecution(tuple);
 		//updateAllocatedMips(operatorId);
 		processCloudletSubmit(ev, false);
+		//updateAllocatedMips(operatorId);
+		/*for(Vm vm : getHost().getVmList()){
+			Logger.error(getName(), "MIPS allocated to "+((AppModule)vm).getName()+" = "+getHost().getTotalAllocatedMipsForVm(vm));
+		}*/
+
+	}
+	
+	protected void executeTuple(SimEvent ev, String operatorId, CloudSimParallel cloudSimParallel){
+		////*System.out.println("executeTuple -> FogDevice.java");
+		Log.writeInLogFile(this.getName(), "executeTuple -> FogDevice.java");
+
+		//TODO Power funda
+		Logger.debug(getName(), "Executing tuple on module "+operatorId);
+		////*System.out.println("Execute tuple on module "+operatorId);
+		Tuple tuple = (Tuple)ev.getData();
+		////*System.out.println("Tupel:"+tuple.toString());
+		TimeKeeper.getInstance().tupleStartedExecution(tuple);
+		//updateAllocatedMips(operatorId);
+		processCloudletSubmit(ev, false, cloudSimParallel);
 		//updateAllocatedMips(operatorId);
 		/*for(Vm vm : getHost().getVmList()){
 			Logger.error(getName(), "MIPS allocated to "+((AppModule)vm).getName()+" = "+getHost().getTotalAllocatedMipsForVm(vm));
@@ -914,6 +1332,29 @@ public class FogDevice extends PowerDatacenter {
 		module.updateVmProcessing(CloudSim.clock(), getVmAllocationPolicy().getHost(module).getVmScheduler().getAllocatedMipsForVm(module));
 	}
 	
+	
+	protected void processModuleArrival(SimEvent ev, CloudSimParallel cloudSimParallel){
+		AppModule module = (AppModule)ev.getData();
+		String appId = module.getAppId();
+		
+		System.out.println("Creating module "+module.getName()+" on device "+getName()+"+\tappId="+appId);
+		if(!appToModulesMap.containsKey(appId)){
+			appToModulesMap.put(appId, new ArrayList<String>());
+		}
+		
+		System.out.println("appToModulesMap.get("+appId+").add("+module.getName()+")");
+		appToModulesMap.get(appId).add(module.getName());
+		//processVmCreate(ev, false);
+		if (module.isBeingInstantiated()) {
+			module.setBeingInstantiated(false);
+		}
+		
+		
+		initializePeriodicTuples(module, cloudSimParallel);
+		
+		module.updateVmProcessing(cloudSimParallel.clock(), getVmAllocationPolicy().getHost(module).getVmScheduler().getAllocatedMipsForVm(module));
+	}
+	
 	private void initializePeriodicTuples(AppModule module) {
 		////*System.out.println("Sending of perioding tuples from "+getName()+"?");
 		Log.writeInLogFile(this.getName(), "Sending of perioding tuples from "+getName()+"?");
@@ -928,8 +1369,27 @@ public class FogDevice extends PowerDatacenter {
 			send(getId(), edge.getPeriodicity(), FogEvents.SEND_PERIODIC_TUPLE, edge);
 		}
 	}
+	
+	private void initializePeriodicTuples(AppModule module, CloudSimParallel cloudSimParallel) {
+		System.out.println("Sending of perioding tuples from "+getName()+"?");
+		Log.writeInLogFile(this.getName(), "Sending of perioding tuples from "+getName()+"?");
+		String appId = module.getAppId();
+		Application app = getApplicationMap().get(appId);
+		
+		//if there are a list of periodic tuples
+		List<AppEdge> periodicEdges = app.getPeriodicEdges(module.getName());
+		for(AppEdge edge : periodicEdges){
+			System.out.println("Sending of perdiong tuple :"+edge.toString());
+			Log.writeInLogFile(this.getName(), "Sending of perdiong tuple :"+edge.toString());
+			send(getId(), edge.getPeriodicity(), FogEvents.SEND_PERIODIC_TUPLE, edge, cloudSimParallel);
+		}
+	}
 
 	protected void processOperatorRelease(SimEvent ev){
+		this.processVmMigrate(ev, false);
+	}
+	
+	protected void processOperatorRelease(SimEvent ev, CloudSimParallel cloudSimParallel){
 		this.processVmMigrate(ev, false);
 	}
 	
@@ -942,30 +1402,15 @@ public class FogDevice extends PowerDatacenter {
 //		}
 	}
 	
-//	protected void sendUpFreeLink(Tuple tuple){
-//		
-//		/* Without data placement */
-//	
-//		String deviceName = ModuleMapping.getDeviceHostModule(tuple.getDestModuleName().get(0));
-//		
-//		Application application = applicationMap.get(tuple.getAppId());
-//	
-//		int destDevId = application.getFogDeviceByName(deviceName).getId();
-//		float latency = BasisDelayMatrix.getFatestLink(getId(), destDevId);
-//		
-//		int ex = DataPlacement.Basis_Exchange_Unit;
-//		long tupleDataSize = tuple.getCloudletFileSize();
-//		int nb_Unit = (int) (tupleDataSize / ex);
-//		if(tupleDataSize % ex != 0) nb_Unit++;
-//		
-//		LatencyStats.add_Overall_write_Letency(LatencyStats.getOverall_write_Latency()+latency*nb_Unit);
-//		LatencyStats.add_Overall_Letency(LatencyStats.getOverall_Latency()+latency*nb_Unit);
-//		
-//		send(destDevId, latency*nb_Unit, FogEvents.TUPLE_PROCESS, tuple);
-//
-//	}
-	
-	
+	protected void updateNorthTupleQueue(CloudSimParallel cloudSimParallel){
+//		if(!getNorthTupleQueue().isEmpty()){
+//			Tuple tuple = getNorthTupleQueue().poll();
+//			sendUpFreeLink(tuple);
+//		}else{
+//			setNorthLinkBusy(false);
+//		}
+	}
+		
 	protected void sendUpFreeLink(Tuple tuple){
 		/* With data placement */
 		////*System.out.println("tuple:"+tuple.toString());
@@ -989,6 +1434,35 @@ public class FogDevice extends PowerDatacenter {
 		////*System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
 		
 		send(storageNodeId, latency*nb_Unit , FogEvents.TUPLE_STORAGE, tuple);
+		
+		//send(parentId, networkDelay+getUplinkLatency(), FogEvents.TUPLE_ARRIVAL, tuple);
+		//NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
+
+	}
+	
+	protected void sendUpFreeLink(Tuple tuple, CloudSimParallel cloudSimParallel){
+		/* With data placement */
+		////*System.out.println("tuple:"+tuple.toString());
+		int storageNodeId = getStorageNodeId(tuple.getTupleType());
+		////*System.out.println("Send tuple to the storage node:"+storageNodeId);
+		Log.writeInLogFile(this.getName(), "Send tuple to the storage node:"+storageNodeId);
+		
+		float latency = BasisDelayMatrix.getFatestLink(getId(), storageNodeId);
+
+		int ex = DataPlacement.Basis_Exchange_Unit;
+		long tupleDataSize = tuple.getCloudletFileSize();
+		int nb_Unit = (int) (tupleDataSize / ex);
+		if(tupleDataSize % ex != 0) nb_Unit++;
+		
+		LatencyStats.add_Overall_write_Letency(LatencyStats.getOverall_write_Latency()+latency*nb_Unit);
+		LatencyStats.add_Overall_Letency(LatencyStats.getOverall_Latency()+latency*nb_Unit);
+		
+		////*System.out.println("source node name:"+getName());
+		////*System.out.println("Overal read latency:"+LatencyStats.getOverall_read_Latency());
+		////*System.out.println("Overal write latency:"+LatencyStats.getOverall_write_Latency());
+		////*System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
+		
+		send(storageNodeId, latency*nb_Unit , FogEvents.TUPLE_STORAGE, tuple, cloudSimParallel);
 		
 		//send(parentId, networkDelay+getUplinkLatency(), FogEvents.TUPLE_ARRIVAL, tuple);
 		//NetworkUsageMonitor.sendingTuple(getUplinkLatency(), tuple.getCloudletFileSize());
@@ -1043,10 +1517,24 @@ public class FogDevice extends PowerDatacenter {
 
 	}
 	
+	protected void sendUp(Tuple tuple, CloudSimParallel cloudSimParallel){
+		sendUpFreeLink(tuple, cloudSimParallel);
+
+	}
+	
 	protected void updateSouthTupleQueue(){
 		if(!getSouthTupleQueue().isEmpty()){
 			Pair<Tuple, Integer> pair = getSouthTupleQueue().poll(); 
 			sendDownFreeLink(pair.getFirst(), pair.getSecond());
+		}else{
+			setSouthLinkBusy(false);
+		}
+	}
+	
+	protected void updateSouthTupleQueue(CloudSimParallel cloudSimParallel){
+		if(!getSouthTupleQueue().isEmpty()){
+			Pair<Tuple, Integer> pair = getSouthTupleQueue().poll(); 
+			sendDownFreeLink(pair.getFirst(), pair.getSecond(), cloudSimParallel);
 		}else{
 			setSouthLinkBusy(false);
 		}
@@ -1062,10 +1550,31 @@ public class FogDevice extends PowerDatacenter {
 		NetworkUsageMonitor.sendingTuple(latency, tuple.getCloudletFileSize());
 	}
 	
+	protected void sendDownFreeLink(Tuple tuple, int childId, CloudSimParallel cloudSimParallel){
+		double networkDelay = tuple.getCloudletFileSize()/getDownlinkBandwidth();
+		//Logger.debug(getName(), "Sending tuple with tupleType = "+tuple.getTupleType()+" DOWN");
+		setSouthLinkBusy(true);
+		float latency = getChildToLatencyMap().get(childId);
+		send(getId(), networkDelay, FogEvents.UPDATE_SOUTH_TUPLE_QUEUE, cloudSimParallel);
+		send(childId, networkDelay+latency, FogEvents.TUPLE_ARRIVAL, tuple, cloudSimParallel);
+		NetworkUsageMonitor.sendingTuple(latency, tuple.getCloudletFileSize());
+	}
+	
+	
 	protected void sendDown(Tuple tuple, int childId){
 		if(getChildrenIds().contains(childId)){
 			if(!isSouthLinkBusy()){
 				sendDownFreeLink(tuple, childId);
+			}else{
+				southTupleQueue.add(new Pair<Tuple, Integer>(tuple, childId));
+			}
+		}
+	}
+	
+	protected void sendDown(Tuple tuple, int childId, CloudSimParallel cloudSimParallel){
+		if(getChildrenIds().contains(childId)){
+			if(!isSouthLinkBusy()){
+				sendDownFreeLink(tuple, childId, cloudSimParallel);
 			}else{
 				southTupleQueue.add(new Pair<Tuple, Integer>(tuple, childId));
 			}
@@ -1077,6 +1586,13 @@ public class FogDevice extends PowerDatacenter {
 		Log.writeInLogFile(this.getName(), "Sending the tuple to self for processing tuple:"+tuple.toString());
 		//send(getId(), CloudSim.getMinTimeBetweenEvents(), FogEvents.TUPLE_ARRIVAL, tuple);
 		sendNow(getId(),  FogEvents.TUPLE_ARRIVAL, tuple);
+	}
+	
+	protected void sendToSelf(Tuple tuple, CloudSimParallel cloudSimParallel){
+		////*System.out.println("Sending the tuple to self for processing tuple:"+tuple.toString());
+		Log.writeInLogFile(this.getName(), "Sending the tuple to self for processing tuple:"+tuple.toString());
+		//send(getId(), CloudSim.getMinTimeBetweenEvents(), FogEvents.TUPLE_ARRIVAL, tuple);
+		sendNow(getId(),  FogEvents.TUPLE_ARRIVAL, tuple, cloudSimParallel);
 	}
 	
 	public PowerHost getHost(){

@@ -144,6 +144,60 @@ public class Sensor extends SimEntity{
 
 		send(gatewayDeviceId, delay*nb_Unit, FogEvents.TUPLE_PROCESS,tuple);
 	}
+	public void transmit(CloudSimParallel cloudSimParallel){
+		AppEdge _edge = null;
+		////System.out.println("getTupleType():"+getTupleType());
+		
+		_edge = getApp().getEdgeMap().get(getTupleType());
+		
+		if(_edge == null){
+			System.out.println("Error!!!");
+			System.out.println("Application n:"+getAppId()+" hasn't tuple type:"+getTupleType()+" for Sensor:"+getSensorName());
+			System.exit(0);
+		}
+		
+//		for(AppEdge edge : getApp().getEdges()){
+//			if(edge.getTupleType().equals(getTupleType())){
+//				// //System.out.println("Tuple are finded!");
+//				_edge = edge;
+//				break;
+//			}
+//		}
+		
+		////System.out.println(_edge.toString());
+		/* construct the new tuple */
+		long cpuLength = (long) _edge.getTupleCpuLength();
+		long nwLength = (long) _edge.getTupleNwLength();
+		
+		Tuple tuple = new Tuple(getAppId(), FogUtils.generateTupleId(), Tuple.UP, cpuLength, 1, nwLength, outputSize, 
+				new UtilizationModelFull(), new UtilizationModelFull(), new UtilizationModelFull());
+		tuple.setUserId(getUserId());
+		tuple.setTupleType(getTupleType());
+		
+		tuple.setDestModuleName(_edge.getDestination());
+		tuple.setSrcModuleName(getSensorName());
+		Logger.debug(getName(), "Sending tuple with tupleId = "+tuple.getCloudletId());
+//		Logger.debug(getName(), "Sending tuple "+tuple.getCloudletId()+"to "+tuple.getDestModuleName()+" with delay="+delay);
+
+		int actualTupleId = updateTimings(getSensorName(), tuple.getDestModuleName().get(0));
+		tuple.setActualTupleId(actualTupleId);
+		
+		int ex = DataPlacement.Basis_Exchange_Unit;
+		long tupleDataSize = tuple.getCloudletFileSize();
+		int nb_Unit = (int) (tupleDataSize / ex);
+		if(tupleDataSize % ex != 0) nb_Unit++;
+		float delay = getLatency();
+	
+//		LatencyStats.add_Overall_Letency(LatencyStats.getOverall_Latency()+delay*nb_Unit);
+//		LatencyStats.add_Overall_write_Letency(LatencyStats.getOverall_write_Latency()+delay*nb_Unit);
+		
+		//System.out.println("Node name:"+getName());
+		//System.out.println("Overal read latency:"+LatencyStats.getOverall_read_Latency());
+		//System.out.println("Overal write latency:"+LatencyStats.getOverall_write_Latency());
+		//System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
+
+		send(gatewayDeviceId, delay*nb_Unit, FogEvents.TUPLE_PROCESS,tuple, cloudSimParallel);
+	}
 	
 	private int updateTimings(String src, String dest){
 		Application application = getApp();
@@ -170,9 +224,11 @@ public class Sensor extends SimEntity{
 	
 	@Override
 	public void startEntity(CloudSimParallel cloudSimParallel) {
-		send(gatewayDeviceId, CloudSim.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED, geoLocation);
+		System.out.println(this.getName()+": Send snecor joined to:"+gatewayDeviceId);
+		send(gatewayDeviceId, cloudSimParallel.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED, geoLocation, cloudSimParallel);
 		//sendNow(gatewayDeviceId, FogEvents.SENSOR_JOINED, geoLocation);
-		send(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE);
+		System.out.println(this.getName()+": Send snecor emit tuple to"+ getId());
+		send2(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE, cloudSimParallel);
 	}
 
 	@Override
@@ -186,8 +242,26 @@ public class Sensor extends SimEntity{
 			break;
 		case FogEvents.EMIT_TUPLE:
 			transmit();
-			//*System.out.println("Send ev for the next period:getNextValue()="+getTransmitDistribution().getNextValue());
+			System.out.println("Send ev for the next period:getNextValue() seq ="+getTransmitDistribution().getNextValue());
 			send(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE);
+			break;
+		}
+			
+	}
+	
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		switch(ev.getTag()){
+		case FogEvents.TUPLE_ACK:
+			//nothing
+			break;
+		case FogEvents.SENSOR_JOINED:
+			//nothing
+			break;
+		case FogEvents.EMIT_TUPLE:
+			transmit(cloudSimParallel);
+			System.out.println("Send ev for the next period:getNextValue() par="+getTransmitDistribution().getNextValue());
+			send2(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE, cloudSimParallel);
 			break;
 		}
 			
@@ -284,6 +358,12 @@ public class Sensor extends SimEntity{
 
 	public void setLatency(float latency) {
 		this.latency = latency;
+	}
+
+	@Override
+	public void shutdownEntity(CloudSimParallel cloudSimParallel) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

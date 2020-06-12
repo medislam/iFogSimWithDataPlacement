@@ -102,71 +102,6 @@ public class PowerDatacenter extends Datacenter {
 	 */
 	@Override
 	protected void updateCloudletProcessing() {
-//		//*System.out.println("updating processing -> PowerDatacenter.java");
-//		////*System.out.println("Future size dup 1 = "+CloudSim.getFutureSize());
-//		if (getCloudletSubmitted() == -1 || getCloudletSubmitted() == CloudSim.clock()){
-//			////*System.out.println("------------------------------------------");
-//			////*System.out.println("Future size dup 2 = "+CloudSim.getFutureSize());
-//			//CloudSim.cancelAll(getId(), new PredicateType(CloudSimTags.VM_DATACENTER_EVENT));
-//			////*System.out.println("Future size dup 3 = "+CloudSim.getFutureSize());
-//			//schedule(getId(), getSchedulingInterval(), CloudSimTags.VM_DATACENTER_EVENT);
-//			return;
-//		}
-//		
-//		
-//		double currentTime = CloudSim.clock();
-//
-//		// if some time passed since last processing
-//		if (currentTime > getLastProcessTime()) {
-//			
-//			double minTime = updateCloudetProcessingWithoutSchedulingFutureEventsForce();
-//			if (!isDisableMigrations()) {
-//				List<Map<String, Object>> migrationMap = getVmAllocationPolicy().optimizeAllocation(
-//						getVmList());
-//
-//				if (migrationMap != null) {
-//					for (Map<String, Object> migrate : migrationMap) {
-//						Vm vm = (Vm) migrate.get("vm");
-//						PowerHost targetHost = (PowerHost) migrate.get("host");
-//						PowerHost oldHost = (PowerHost) vm.getHost();
-//
-//						if (oldHost == null) {
-//							Log.formatLine(
-//									"%.2f: Migration of VM #%d to Host #%d is started",
-//									currentTime,
-//									vm.getId(),
-//									targetHost.getId());
-//						} else {
-//							Log.formatLine(
-//									"%.2f: Migration of VM #%d from Host #%d to Host #%d is started",
-//									currentTime,
-//									vm.getId(),
-//									oldHost.getId(),
-//									targetHost.getId());
-//						}
-//
-//						targetHost.addMigratingInVm(vm);
-//						incrementMigrationCount();
-//
-//						/** VM migration delay = RAM / bandwidth **/
-//						// we use BW / 2 to model BW available for migration purposes, the other
-//						// half of BW is for VM communication
-//						// around 16 seconds for 1024 MB using 1 Gbit/s network
-//						send(getId(), vm.getRam() / ((double) targetHost.getBw() / (2 * 8000)), CloudSimTags.VM_MIGRATE, migrate);
-//					}
-//				}
-//			}
-//
-//			// schedules an event to the next time
-//			if (minTime != Double.MAX_VALUE) {
-//				//*System.out.println("CloudSim.cancelAll -> deviceId:"+getId()+"\tevt.tag:VM_DATACENTER_EVENT -> From future Queue!");
-//				CloudSim.cancelAll(getId(), new PredicateType(CloudSimTags.VM_DATACENTER_EVENT));
-//				////*System.out.println("******************************");
-//				send(getId(), getSchedulingInterval(), CloudSimTags.VM_DATACENTER_EVENT);
-//			}
-//
-//			setLastProcessTime(currentTime);
-//		}
 	}
 
 	/**
@@ -266,6 +201,87 @@ public class PowerDatacenter extends Datacenter {
 		setLastProcessTime(currentTime);
 		return minTime;
 	}
+	
+	protected double updateCloudetProcessingWithoutSchedulingFutureEventsForce(CloudSimParallel cloudSimParallel) {
+		////*System.out.println("updateCloudetProcessingWithoutSchedulingFutureEventsForce -> PowerDataCenter.java");
+		double currentTime = cloudSimParallel.clock();
+		double minTime = Double.MAX_VALUE;
+		double timeDiff = currentTime - getLastProcessTime();
+		double timeFrameDatacenterEnergy = 0.0;
+
+		Log.printLine("\n\n--------------------------------------------------------------\n\n");
+		Log.formatLine("New resource usage for the time frame starting at %.2f:", currentTime);
+
+		for (PowerHost host : this.<PowerHost> getHostList()) {
+			Log.printLine();
+
+			double time = host.updateVmsProcessing(currentTime); // inform VMs to update processing
+			if (time < minTime) {
+				minTime = time;
+			}
+
+			Log.formatLine(
+					"%.2f: [Host #%d] utilization is %.2f%%",
+					currentTime,
+					host.getId(),
+					host.getUtilizationOfCpu() * 100);
+		}
+
+		if (timeDiff > 0) {
+			Log.formatLine(
+					"\nEnergy consumption for the last time frame from %.2f to %.2f:",
+					getLastProcessTime(),
+					currentTime);
+
+			for (PowerHost host : this.<PowerHost> getHostList()) {
+				double previousUtilizationOfCpu = host.getPreviousUtilizationOfCpu();
+				double utilizationOfCpu = host.getUtilizationOfCpu();
+				double timeFrameHostEnergy = host.getEnergyLinearInterpolation(
+						previousUtilizationOfCpu,
+						utilizationOfCpu,
+						timeDiff);
+				timeFrameDatacenterEnergy += timeFrameHostEnergy;
+
+				Log.printLine();
+				Log.formatLine(
+						"%.2f: [Host #%d] utilization at %.2f was %.2f%%, now is %.2f%%",
+						currentTime,
+						host.getId(),
+						getLastProcessTime(),
+						previousUtilizationOfCpu * 100,
+						utilizationOfCpu * 100);
+				Log.formatLine(
+						"%.2f: [Host #%d] energy is %.2f W*sec",
+						currentTime,
+						host.getId(),
+						timeFrameHostEnergy);
+			}
+
+			Log.formatLine(
+					"\n%.2f: Data center's energy is %.2f W*sec\n",
+					currentTime,
+					timeFrameDatacenterEnergy);
+		}
+
+		setPower(getPower() + timeFrameDatacenterEnergy);
+
+		checkCloudletCompletion(cloudSimParallel);
+
+		/** Remove completed VMs **/
+		
+		for (PowerHost host : this.<PowerHost> getHostList()) {
+			for (Vm vm : host.getCompletedVms()) {
+				getVmAllocationPolicy().deallocateHostForVm(vm);
+				getVmList().remove(vm);
+				Log.printLine("VM #" + vm.getId() + " has been deallocated from host #" + host.getId());
+			}
+		}
+		
+		Log.printLine();
+
+		setLastProcessTime(currentTime);
+		return minTime;
+	}
 
 	/*
 	 * (non-Javadoc)
@@ -290,6 +306,13 @@ public class PowerDatacenter extends Datacenter {
 	protected void processCloudletSubmit(SimEvent ev, boolean ack) {
 		//*System.out.println("processCloudletSubmit -> PowerDataCenter.java");
 		super.processCloudletSubmit(ev, ack);
+		//setCloudletSubmitted(CloudSim.clock());
+	}
+	
+	@Override
+	protected void processCloudletSubmit(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		//*System.out.println("processCloudletSubmit -> PowerDataCenter.java");
+		super.processCloudletSubmit(ev, ack, cloudSimParallel);
 		//setCloudletSubmitted(CloudSim.clock());
 	}
 

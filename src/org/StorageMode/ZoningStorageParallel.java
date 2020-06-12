@@ -79,7 +79,7 @@ public class ZoningStorageParallel {
 			System.out.println("Controller!");
 			Log.writeInLogFile("DataPlacement", "Controller!");
 			Controller controller = new Controller("master-controller",DataPlacement.fogDevices, DataPlacement.sensors, DataPlacement.actuators, moduleMapping, cloudsimparallel);
-			controller.submitApplication(application, 0);
+			controller.submitApplication(application, 0, cloudsimparallel);
 
 			TimeKeeper.getInstance().setSimulationStartTime(Calendar.getInstance().getTimeInMillis());
 

@@ -110,13 +110,13 @@ public class Controller extends SimEntity{
 		System.out.println("Number of applications ="+applications.size());
 		for(String appId : applications.keySet()){
 			if(getAppLaunchDelays().get(appId)==0)
-				processAppSubmit(applications.get(appId));
+				processAppSubmit(applications.get(appId), cloudSimParallel);
 			else
-				send(getId(), getAppLaunchDelays().get(appId), FogEvents.APP_SUBMIT, applications.get(appId));
+				send(getId(), getAppLaunchDelays().get(appId), FogEvents.APP_SUBMIT, applications.get(appId),cloudSimParallel);
 		}
 
 		//send(getId(), Config.RESOURCE_MANAGE_INTERVAL, FogEvents.CONTROLLER_RESOURCE_MANAGE);
-		send(getId(), Config.MAX_SIMULATION_TIME, FogEvents.STOP_SIMULATION);
+		send2(getId(), Config.MAX_SIMULATION_TIME, FogEvents.STOP_SIMULATION, cloudSimParallel);
 		
 		//for(FogDevice dev : getFogDevices())
 			//sendNow(dev.getId(), FogEvents.RESOURCE_MGMT);
@@ -137,6 +137,33 @@ public class Controller extends SimEntity{
 			break;
 		case FogEvents.STOP_SIMULATION:
 			CloudSim.stopSimulation();
+			//printTimeDetails();
+			//printPowerDetails();
+			//printCostDetails();
+			//printNetworkUsageDetails();
+			System.out.println("Simulations riched its max time!");
+			System.out.println("Overal read latency:"+LatencyStats.getOverall_read_Latency());
+			System.out.println("Overal write latency:"+LatencyStats.getOverall_write_Latency());
+			System.out.println("Overal latency:"+LatencyStats.getOverall_Latency());
+			break;
+			
+		}
+	}
+	
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		switch(ev.getTag()){
+		case FogEvents.APP_SUBMIT:
+			processAppSubmit(ev, cloudSimParallel);
+			break;
+		case FogEvents.TUPLE_FINISHED:
+			processTupleFinished(ev, cloudSimParallel);
+			break;
+		case FogEvents.CONTROLLER_RESOURCE_MANAGE:
+			manageResources(cloudSimParallel);
+			break;
+		case FogEvents.STOP_SIMULATION:
+			cloudSimParallel.stopSimulation(cloudSimParallel);
 			//printTimeDetails();
 			//printPowerDetails();
 			//printCostDetails();
@@ -221,11 +248,27 @@ public class Controller extends SimEntity{
 		send(getId(), Config.RESOURCE_MANAGE_INTERVAL, FogEvents.CONTROLLER_RESOURCE_MANAGE);
 	}
 	
+	protected void manageResources(CloudSimParallel cloudSimParallel){
+		System.out.println("Controller Resource Manager! ");
+		//To Do here what resources management!
+		//Send ev to the next period
+		send(getId(), Config.RESOURCE_MANAGE_INTERVAL, FogEvents.CONTROLLER_RESOURCE_MANAGE, cloudSimParallel);
+	}
+	
 	private void processTupleFinished(SimEvent ev) {
+	}
+	
+	private void processTupleFinished(SimEvent ev, CloudSimParallel cloudSimParallel) {
 	}
 	
 	@Override
 	public void shutdownEntity() {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	@Override
+	public void shutdownEntity(CloudSimParallel cloudSimParallel) {
 		// TODO Auto-generated method stub
 		
 	}
@@ -253,11 +296,43 @@ public class Controller extends SimEntity{
 		
 	}
 	
+	public void submitApplication(Application application, int delay, CloudSimParallel cloudSimParallel){
+		System.out.println(this.getName()+" submitApplication");
+		
+		FogUtils.appIdToGeoCoverageMap.put(application.getAppId(), application.getGeoCoverage());
+		getApplications().put(application.getAppId(), application);
+		getAppLaunchDelays().put(application.getAppId(), delay);
+		for(Sensor sensor : sensors){
+			System.out.println("set app for sensor "+sensor.getName());
+			sensor.setApp(application);
+		}
+		for(Actuator ac : actuators){
+			ac.setApp(application);
+			System.out.println("set app for actuator "+ac.getName());
+		}
+		
+		for(AppEdge edge : application.getEdges()){
+			if(edge.getEdgeType() == AppEdge.ACTUATOR){
+				String moduleName = edge.getSource();
+				for(Actuator actuator : getActuators()){
+					if(actuator.getActuatorType().equalsIgnoreCase(edge.getDestination().get(0)))
+						application.getModuleByName(moduleName).subscribeActuator(actuator.getId(), edge.getTupleType());
+				}
+			}
+		}
+		
+	}
+	
 	
 	
 	private void processAppSubmit(SimEvent ev){
 		Application app = (Application) ev.getData();
 		processAppSubmit(app);
+	}
+	
+	private void processAppSubmit(SimEvent ev, CloudSimParallel cloudSimParallel){
+		Application app = (Application) ev.getData();
+		processAppSubmit(app, cloudSimParallel);
 	}
 	
 	private void processAppSubmit(Application application){
@@ -280,6 +355,30 @@ public class Controller extends SimEntity{
 				sendNow(deviceId, FogEvents.APP_SUBMIT, application);
 				sendNow(deviceId, FogEvents.LAUNCH_MODULE, module);
 				sendNow(deviceId, FogEvents.LAUNCH_MODULE_INSTANCE, new ModuleLaunchConfig(module, instanceCountMap.get(deviceId).get(module.getName())));
+			}
+		}
+	}
+	
+	private void processAppSubmit(Application application, CloudSimParallel cloudSimParallel){
+		System.out.println(cloudSimParallel.clock()+" Submitted application "+ application.getAppId());
+		FogUtils.appIdToGeoCoverageMap.put(application.getAppId(), application.getGeoCoverage());
+		getApplications().put(application.getAppId(), application);
+		
+		//ModulePlacement modulePlacement = new ModulePlacementEdgewards(getFogDevices(), getSensors(), getActuators(), application, getModuleMapping());
+		
+		//creating modules on devices
+		ModulePlacement modulePlacement = new ModulePlacementMapping(getFogDevices(), application, getModuleMapping());
+		for(FogDevice fogDevice : fogDevices){
+			sendNow(fogDevice.getId(), FogEvents.ACTIVE_APP_UPDATE, application, cloudSimParallel);
+		}
+		
+		Map<Integer, List<AppModule>> deviceToModuleMap = modulePlacement.getDeviceToModuleMap();
+		Map<Integer, Map<String, Integer>> instanceCountMap = modulePlacement.getModuleInstanceCountMap();
+		for(Integer deviceId : deviceToModuleMap.keySet()){
+			for(AppModule module : deviceToModuleMap.get(deviceId)){
+				sendNow(deviceId, FogEvents.APP_SUBMIT, application, cloudSimParallel);
+				sendNow(deviceId, FogEvents.LAUNCH_MODULE, module, cloudSimParallel);
+				sendNow(deviceId, FogEvents.LAUNCH_MODULE_INSTANCE, new ModuleLaunchConfig(module, instanceCountMap.get(deviceId).get(module.getName())), cloudSimParallel);
 			}
 		}
 	}

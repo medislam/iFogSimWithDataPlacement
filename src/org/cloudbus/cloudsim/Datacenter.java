@@ -286,6 +286,141 @@ public class Datacenter extends SimEntity {
 				break;
 		}
 	}
+	
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		int srcId = -1;
+
+		switch (ev.getTag()) {
+		// Resource characteristics inquiry
+			case CloudSimTags.RESOURCE_CHARACTERISTICS:
+				srcId = ((Integer) ev.getData()).intValue();
+				sendNow(srcId, ev.getTag(), getCharacteristics(), cloudSimParallel);
+				////*System.out.println(getName()+" sending an event to "+srcId+ " for resource characteristics!");
+				break;
+
+			// Resource dynamic info inquiry
+			case CloudSimTags.RESOURCE_DYNAMICS:
+				srcId = ((Integer) ev.getData()).intValue();
+				sendNow(srcId, ev.getTag(), 0, cloudSimParallel);
+				break;
+
+			case CloudSimTags.RESOURCE_NUM_PE:
+				srcId = ((Integer) ev.getData()).intValue();
+				int numPE = getCharacteristics().getNumberOfPes();
+				sendNow(srcId, ev.getTag(), numPE, cloudSimParallel);
+				break;
+
+			case CloudSimTags.RESOURCE_NUM_FREE_PE:
+				srcId = ((Integer) ev.getData()).intValue();
+				int freePesNumber = getCharacteristics().getNumberOfFreePes();
+				sendNow(srcId, ev.getTag(), freePesNumber, cloudSimParallel);
+				break;
+
+			// New Cloudlet arrives
+			case CloudSimTags.CLOUDLET_SUBMIT:
+				processCloudletSubmit(ev, false, cloudSimParallel);
+				break;
+
+			// New Cloudlet arrives, but the sender asks for an ack
+			case CloudSimTags.CLOUDLET_SUBMIT_ACK:
+				processCloudletSubmit(ev, true, cloudSimParallel);
+				break;
+
+			// Cancels a previously submitted Cloudlet
+			case CloudSimTags.CLOUDLET_CANCEL:
+				processCloudlet(ev, CloudSimTags.CLOUDLET_CANCEL, cloudSimParallel);
+				break;
+
+			// Pauses a previously submitted Cloudlet
+			case CloudSimTags.CLOUDLET_PAUSE:
+				processCloudlet(ev, CloudSimTags.CLOUDLET_PAUSE, cloudSimParallel);
+				break;
+
+			// Pauses a previously submitted Cloudlet, but the sender
+			// asks for an acknowledgement
+			case CloudSimTags.CLOUDLET_PAUSE_ACK:
+				processCloudlet(ev, CloudSimTags.CLOUDLET_PAUSE_ACK, cloudSimParallel);
+				break;
+
+			// Resumes a previously submitted Cloudlet
+			case CloudSimTags.CLOUDLET_RESUME:
+				processCloudlet(ev, CloudSimTags.CLOUDLET_RESUME, cloudSimParallel);
+				break;
+
+			// Resumes a previously submitted Cloudlet, but the sender
+			// asks for an acknowledgement
+			case CloudSimTags.CLOUDLET_RESUME_ACK:
+				processCloudlet(ev, CloudSimTags.CLOUDLET_RESUME_ACK, cloudSimParallel);
+				break;
+
+			// Moves a previously submitted Cloudlet to a different resource
+			case CloudSimTags.CLOUDLET_MOVE:
+				processCloudletMove((int[]) ev.getData(), CloudSimTags.CLOUDLET_MOVE, cloudSimParallel);
+				break;
+
+			// Moves a previously submitted Cloudlet to a different resource
+			case CloudSimTags.CLOUDLET_MOVE_ACK:
+				processCloudletMove((int[]) ev.getData(), CloudSimTags.CLOUDLET_MOVE_ACK, cloudSimParallel);
+				break;
+
+			// Checks the status of a Cloudlet
+			case CloudSimTags.CLOUDLET_STATUS:
+				processCloudletStatus(ev, cloudSimParallel);
+				break;
+
+			// Ping packet
+			case CloudSimTags.INFOPKT_SUBMIT:
+				processPingRequest(ev, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_CREATE:
+				processVmCreate(ev, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_CREATE_ACK:
+				processVmCreate(ev, true, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_DESTROY:
+				processVmDestroy(ev, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_DESTROY_ACK:
+				processVmDestroy(ev, true, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_MIGRATE:
+				processVmMigrate(ev, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_MIGRATE_ACK:
+				processVmMigrate(ev, true, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_DATA_ADD:
+				processDataAdd(ev, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_DATA_ADD_ACK:
+				processDataAdd(ev, true, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_DATA_DEL:
+				processDataDelete(ev, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.VM_DATA_DEL_ACK:
+				processDataDelete(ev, true, cloudSimParallel);
+				break;
+
+			// other unknown tags are processed by this method
+			default:
+				processOtherEvent(ev, cloudSimParallel);
+				break;
+		}
+	}
+
 
 
 	/**
@@ -325,6 +460,38 @@ public class Datacenter extends SimEntity {
 			sendNow(req_source, tag, pack);
 		}
 	}
+	
+	protected void processDataDelete(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		if (ev == null) {
+			return;
+		}
+
+		Object[] data = (Object[]) ev.getData();
+		if (data == null) {
+			return;
+		}
+
+		String filename = (String) data[0];
+		int req_source = ((Integer) data[1]).intValue();
+		int tag = -1;
+
+		// check if this file can be deleted (do not delete is right now)
+		int msg = deleteFileFromStorage(filename);
+		if (msg == DataCloudTags.FILE_DELETE_SUCCESSFUL) {
+			tag = DataCloudTags.CTLG_DELETE_MASTER;
+		} else { // if an error occured, notify user
+			tag = DataCloudTags.FILE_DELETE_MASTER_RESULT;
+		}
+
+		if (ack) {
+			// send back to sender
+			Object pack[] = new Object[2];
+			pack[0] = filename;
+			pack[1] = Integer.valueOf(msg);
+
+			sendNow(req_source, tag, pack, cloudSimParallel);
+		}
+	}
 
 	/**
 	 * Process data add.
@@ -362,6 +529,37 @@ public class Datacenter extends SimEntity {
 			sendNow(sentFrom, DataCloudTags.FILE_ADD_MASTER_RESULT, data);
 		}
 	}
+	
+	protected void processDataAdd(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		if (ev == null) {
+			return;
+		}
+
+		Object[] pack = (Object[]) ev.getData();
+		if (pack == null) {
+			return;
+		}
+
+		File file = (File) pack[0]; // get the file
+		file.setMasterCopy(true); // set the file into a master copy
+		int sentFrom = ((Integer) pack[1]).intValue(); // get sender ID
+
+		/******
+		 * // DEBUG Log.printLine(super.get_name() + ".addMasterFile(): " + file.getName() +
+		 * " from " + CloudSim.getEntityName(sentFrom));
+		 *******/
+
+		Object[] data = new Object[3];
+		data[0] = file.getName();
+
+		int msg = addFile(file); // add the file
+
+		if (ack) {
+			data[1] = Integer.valueOf(-1); // no sender id
+			data[2] = Integer.valueOf(msg); // the result of adding a master file
+			sendNow(sentFrom, DataCloudTags.FILE_ADD_MASTER_RESULT, data, cloudSimParallel);
+		}
+	}
 
 	/**
 	 * Processes a ping request.
@@ -377,6 +575,15 @@ public class Datacenter extends SimEntity {
 
 		// sends back to the sender
 		sendNow(pkt.getSrcId(), CloudSimTags.INFOPKT_RETURN, pkt);
+	}
+	
+	protected void processPingRequest(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		InfoPacket pkt = (InfoPacket) ev.getData();
+		pkt.setTag(CloudSimTags.INFOPKT_RETURN);
+		pkt.setDestId(pkt.getSrcId());
+
+		// sends back to the sender
+		sendNow(pkt.getSrcId(), CloudSimTags.INFOPKT_RETURN, pkt, cloudSimParallel);
 	}
 
 	/**
@@ -432,6 +639,52 @@ public class Datacenter extends SimEntity {
 		int tag = CloudSimTags.CLOUDLET_STATUS;
 		sendNow(userId, tag, array);
 	}
+	
+	protected void processCloudletStatus(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		int cloudletId = 0;
+		int userId = 0;
+		int vmId = 0;
+		int status = -1;
+
+		try {
+			// if a sender using cloudletXXX() methods
+			int data[] = (int[]) ev.getData();
+			cloudletId = data[0];
+			userId = data[1];
+			vmId = data[2];
+
+			status = getVmAllocationPolicy().getHost(vmId, userId).getVm(vmId,userId).getCloudletScheduler()
+					.getCloudletStatus(cloudletId);
+		}
+
+		// if a sender using normal send() methods
+		catch (ClassCastException c) {
+			try {
+				Cloudlet cl = (Cloudlet) ev.getData();
+				cloudletId = cl.getCloudletId();
+				userId = cl.getUserId();
+
+				status = getVmAllocationPolicy().getHost(vmId, userId).getVm(vmId,userId)
+						.getCloudletScheduler().getCloudletStatus(cloudletId);
+			} catch (Exception e) {
+				Log.printLine(getName() + ": Error in processing CloudSimTags.CLOUDLET_STATUS");
+				Log.printLine(e.getMessage());
+				return;
+			}
+		} catch (Exception e) {
+			Log.printLine(getName() + ": Error in processing CloudSimTags.CLOUDLET_STATUS");
+			Log.printLine(e.getMessage());
+			return;
+		}
+
+		int[] array = new int[3];
+		array[0] = getId();
+		array[1] = cloudletId;
+		array[2] = status;
+
+		int tag = CloudSimTags.CLOUDLET_STATUS;
+		sendNow(userId, tag, array, cloudSimParallel);
+	}
 
 	/**
 	 * Here all the method related to VM requests will be received and forwarded to the related
@@ -442,6 +695,12 @@ public class Datacenter extends SimEntity {
 	 * @post $none
 	 */
 	protected void processOtherEvent(SimEvent ev) {
+		if (ev == null) {
+			Log.printLine(getName() + ".processOtherEvent(): Error - an event is null.");
+		}
+	}
+	
+	protected void processOtherEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
 		if (ev == null) {
 			Log.printLine(getName() + ".processOtherEvent(): Error - an event is null.");
 		}
@@ -487,6 +746,38 @@ public class Datacenter extends SimEntity {
 		}
 
 	}
+	
+	protected void processVmCreate(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		Vm vm = (Vm) ev.getData();
+
+		boolean result = getVmAllocationPolicy().allocateHostForVm(vm);
+		
+		
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = vm.getId();
+
+			if (result) {
+				data[2] = CloudSimTags.TRUE;
+			} else {
+				data[2] = CloudSimTags.FALSE;
+			}
+			send(vm.getUserId(), CloudSim.getMinTimeBetweenEvents(), CloudSimTags.VM_CREATE_ACK, data, cloudSimParallel);
+		}
+
+		if (result) {
+			getVmList().add(vm);
+			////*System.out.println("VM "+vm.getId()+" is well created on DataCenter "+getName()+" on host "+getVmAllocationPolicy().getHost(vm).getId()+" at clock:"+CloudSim.clock());
+			if (vm.isBeingInstantiated()) {
+				vm.setBeingInstantiated(false);
+			}
+
+			vm.updateVmProcessing(CloudSim.clock(), getVmAllocationPolicy().getHost(vm).getVmScheduler().getAllocatedMipsForVm(vm));
+		}
+
+	}
 
 	/**
 	 * Process the event for an User/Broker who wants to destroy a VM previously created in this
@@ -509,6 +800,22 @@ public class Datacenter extends SimEntity {
 			data[2] = CloudSimTags.TRUE;
 
 			sendNow(vm.getUserId(), CloudSimTags.VM_DESTROY_ACK, data);
+		}
+
+		getVmList().remove(vm);
+	}
+	
+	protected void processVmDestroy(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		Vm vm = (Vm) ev.getData();
+		getVmAllocationPolicy().deallocateHostForVm(vm);
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = vm.getId();
+			data[2] = CloudSimTags.TRUE;
+
+			sendNow(vm.getUserId(), CloudSimTags.VM_DESTROY_ACK, data, cloudSimParallel);
 		}
 
 		getVmList().remove(vm);
@@ -562,6 +869,48 @@ public class Datacenter extends SimEntity {
 				host.getId());
 		vm.setInMigration(false);
 	}
+	
+	protected void processVmMigrate(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		Object tmp = ev.getData();
+		if (!(tmp instanceof Map<?, ?>)) {
+			throw new ClassCastException("The data object must be Map<String, Object>");
+		}
+
+		@SuppressWarnings("unchecked")
+		Map<String, Object> migrate = (HashMap<String, Object>) tmp;
+
+		Vm vm = (Vm) migrate.get("vm");
+		Host host = (Host) migrate.get("host");
+
+		getVmAllocationPolicy().deallocateHostForVm(vm);
+		host.removeMigratingInVm(vm);
+		boolean result = getVmAllocationPolicy().allocateHostForVm(vm, host);
+		if (!result) {
+			Log.printLine("[Datacenter.processVmMigrate] VM allocation to the destination host failed");
+			System.exit(0);
+		}
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = vm.getId();
+
+			if (result) {
+				data[2] = CloudSimTags.TRUE;
+			} else {
+				data[2] = CloudSimTags.FALSE;
+			}
+			sendNow(ev.getSource(), CloudSimTags.VM_CREATE_ACK, data, cloudSimParallel);
+		}
+
+		Log.formatLine(
+				"%.2f: Migration of VM #%d to Host #%d is completed",
+				cloudSimParallel.clock(),
+				vm.getId(),
+				host.getId());
+		vm.setInMigration(false);
+	}
+
 
 	/**
 	 * Processes a Cloudlet based on the event type.
@@ -622,6 +971,64 @@ public class Datacenter extends SimEntity {
 
 			case CloudSimTags.CLOUDLET_RESUME_ACK:
 				processCloudletResume(cloudletId, userId, vmId, true);
+				break;
+			default:
+				break;
+		}
+
+	}
+	
+	
+	protected void processCloudlet(SimEvent ev, int type, CloudSimParallel cloudSimParallel) {
+		int cloudletId = 0;
+		int userId = 0;
+		int vmId = 0;
+
+		try { // if the sender using cloudletXXX() methods
+			int data[] = (int[]) ev.getData();
+			cloudletId = data[0];
+			userId = data[1];
+			vmId = data[2];
+		}
+
+		// if the sender using normal send() methods
+		catch (ClassCastException c) {
+			try {
+				Cloudlet cl = (Cloudlet) ev.getData();
+				cloudletId = cl.getCloudletId();
+				userId = cl.getUserId();
+				vmId = cl.getVmId();
+			} catch (Exception e) {
+				Log.printLine(super.getName() + ": Error in processing Cloudlet");
+				Log.printLine(e.getMessage());
+				return;
+			}
+		} catch (Exception e) {
+			Log.printLine(super.getName() + ": Error in processing a Cloudlet.");
+			Log.printLine(e.getMessage());
+			return;
+		}
+
+		// begins executing ....
+		switch (type) {
+			case CloudSimTags.CLOUDLET_CANCEL:
+				processCloudletCancel(cloudletId, userId, vmId, cloudSimParallel);
+				break;
+
+			case CloudSimTags.CLOUDLET_PAUSE:
+				processCloudletPause(cloudletId, userId, vmId, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.CLOUDLET_PAUSE_ACK:
+				processCloudletPause(cloudletId, userId, vmId, true, cloudSimParallel);
+				break;
+
+			case CloudSimTags.CLOUDLET_RESUME:
+				processCloudletResume(cloudletId, userId, vmId, false, cloudSimParallel);
+				break;
+
+			case CloudSimTags.CLOUDLET_RESUME_ACK:
+				processCloudletResume(cloudletId, userId, vmId, true, cloudSimParallel);
 				break;
 			default:
 				break;
@@ -696,6 +1103,67 @@ public class Datacenter extends SimEntity {
 				data[2] = 1;
 			}
 			sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_SUBMIT_ACK, data);
+		}
+	}
+	
+	protected void processCloudletMove(int[] receivedData, int type, CloudSimParallel cloudSimParallel) {
+		updateCloudletProcessing();
+
+		int[] array = receivedData;
+		int cloudletId = array[0];
+		int userId = array[1];
+		int vmId = array[2];
+		int vmDestId = array[3];
+		int destId = array[4];
+
+		// get the cloudlet
+		Cloudlet cl = getVmAllocationPolicy().getHost(vmId, userId).getVm(vmId,userId)
+				.getCloudletScheduler().cloudletCancel(cloudletId);
+
+		boolean failed = false;
+		if (cl == null) {// cloudlet doesn't exist
+			failed = true;
+		} else {
+			// has the cloudlet already finished?
+			if (cl.getCloudletStatus() == Cloudlet.SUCCESS) {// if yes, send it back to user
+				int[] data = new int[3];
+				data[0] = getId();
+				data[1] = cloudletId;
+				data[2] = 0;
+				sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_SUBMIT_ACK, data, cloudSimParallel);
+				sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cl, cloudSimParallel);
+			}
+
+			// prepare cloudlet for migration
+			cl.setVmId(vmDestId);
+
+			// the cloudlet will migrate from one vm to another does the destination VM exist?
+			if (destId == getId()) {
+				Vm vm = getVmAllocationPolicy().getHost(vmDestId, userId).getVm(vmDestId,userId);
+				if (vm == null) {
+					failed = true;
+				} else {
+					// time to transfer the files
+					double fileTransferTime = predictFileTransferTime(cl.getRequiredFiles());
+					vm.getCloudletScheduler().cloudletSubmit(cl, fileTransferTime);
+				}
+			} else {// the cloudlet will migrate from one resource to another
+				int tag = ((type == CloudSimTags.CLOUDLET_MOVE_ACK) ? CloudSimTags.CLOUDLET_SUBMIT_ACK
+						: CloudSimTags.CLOUDLET_SUBMIT);
+				sendNow(destId, tag, cl, cloudSimParallel);
+			}
+		}
+
+		if (type == CloudSimTags.CLOUDLET_MOVE_ACK) {// send ACK if requested
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = cloudletId;
+			if (failed) {
+				data[2] = 0;
+			} else {
+				data[2] = 1;
+			}
+			sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_SUBMIT_ACK, data, cloudSimParallel);
 		}
 	}
 
@@ -807,6 +1275,107 @@ public class Datacenter extends SimEntity {
 		
 		////*System.out.println("Future size = "+CloudSim.getFutureSize());
 	}
+	
+	protected void processCloudletSubmit(SimEvent ev, boolean ack, CloudSimParallel cloudSimParallel) {
+		////*System.out.println("processCloudletSubmit -> Datacenter.java");
+		Log.writeInLogFile(this.getName(), "processCloudletSubmit -> Datacenter.java");
+		//updateCloudletProcessing();
+
+		try {
+			// gets the Cloudlet object
+			Cloudlet cl = (Cloudlet) ev.getData();
+
+			// checks whether this Cloudlet has finished or not
+//			if (cl.isFinished()) {
+//				////*System.out.println("Cloudlet is finished!");
+//				String name = CloudSim.getEntityName(cl.getUserId());
+//				Log.printLine(getName() + ": Warning - Cloudlet #" + cl.getCloudletId() + " owned by " + name
+//						+ " is already completed/finished.");
+//				Log.printLine("Therefore, it is not being executed again");
+//				Log.printLine();
+//				
+////				//*System.out.println(getName() + ": Warning - Cloudlet #" + cl.getCloudletId() + " owned by " + name
+////						+ " is already completed/finished.");
+//
+//				// NOTE: If a Cloudlet has finished, then it won't be processed.
+//				// So, if ack is required, this method sends back a result.
+//				// If ack is not required, this method don't send back a result.
+//				// Hence, this might cause CloudSim to be hanged since waiting
+//				// for this Cloudlet back.
+//				if (ack) {
+//					int[] data = new int[3];
+//					data[0] = getId();
+//					data[1] = cl.getCloudletId();
+//					data[2] = CloudSimTags.FALSE;
+//
+//					// unique tag = operation tag
+//					int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
+//					sendNow(cl.getUserId(), tag, data);
+//				}
+//
+//				sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cl);
+//
+//				return;
+//			}
+			//*System.out.println("Cloudlet doesn't finished!");
+			// process this Cloudlet to this CloudResource
+			cl.setResourceParameter(getId(), getCharacteristics().getCostPerSecond(), getCharacteristics().getCostPerBw());
+
+			int userId = cl.getUserId();
+			int vmId = cl.getVmId();
+
+			// time to transfer the files
+			double fileTransferTime = predictFileTransferTime(cl.getRequiredFiles());
+
+			Host host = getVmAllocationPolicy().getHost(vmId, userId);
+			Vm vm = host.getVm(vmId, userId);
+			CloudletScheduler scheduler = vm.getCloudletScheduler();
+			double estimatedFinishTime = scheduler.cloudletSubmit(cl, fileTransferTime);
+			
+			// if this cloudlet is in the exec queue
+			if (estimatedFinishTime > 0.0 && !Double.isInfinite(estimatedFinishTime)) {
+				
+				////*System.out.println("file transfer Time ="+fileTransferTime);
+				////*System.out.println("estimated process time  = "+estimatedFinishTime);
+				estimatedFinishTime += fileTransferTime;
+				////*System.out.println("send(to DataCenter, estimatedFinishTime: "+estimatedFinishTime+" , CloudSimTags.VM_DATACENTER_EVENT);");
+				
+				Log.writeInLogFile(this.getName(), "file transfer Time ="+fileTransferTime);
+				Log.writeInLogFile(this.getName(), "file transfer Time ="+fileTransferTime);
+				//*System.out.println("estimated process time  = "+estimatedFinishTime);
+				Log.writeInLogFile(this.getName(), "estimated process time  = "+estimatedFinishTime);
+				Log.writeInLogFile(this.getName(), "send(to DataCenter, estimatedFinishTime: "+estimatedFinishTime+" , CloudSimTags.VM_DATACENTER_EVENT);");
+
+				//send(getId(), estimatedFinishTime, CloudSimTags.VM_DATACENTER_EVENT);	
+				sendNow(getId(), CloudSimTags.VM_DATACENTER_EVENT, cl, cloudSimParallel);	
+			}
+
+			if (ack) {
+				int[] data = new int[3];
+				data[0] = getId();
+				data[1] = cl.getCloudletId();
+				data[2] = CloudSimTags.TRUE;
+
+				// unique tag = operation tag
+				int tag = CloudSimTags.CLOUDLET_SUBMIT_ACK;
+				//*System.out.println("Cloudlet with ACK, cloudletId:"+cl.getCloudletId());
+				Log.writeInLogFile(this.getName(), "Cloudlet with ACK, cloudletId:"+cl.getCloudletId());
+				sendNow(cl.getUserId(), tag, data, cloudSimParallel);
+				
+			}
+			
+		} catch (ClassCastException c) {
+			Log.printLine(getName() + ".processCloudletSubmit(): " + "ClassCastException error.");
+			c.printStackTrace();
+		} catch (Exception e) {
+			Log.printLine(getName() + ".processCloudletSubmit(): " + "Exception error.");
+			e.printStackTrace();
+		}
+
+		//checkCloudletCompletion();
+		
+		////*System.out.println("Future size = "+CloudSim.getFutureSize());
+	}
 
 	/**
 	 * Predict file transfer time.
@@ -866,6 +1435,31 @@ public class Datacenter extends SimEntity {
 			sendNow(userId, CloudSimTags.CLOUDLET_RESUME_ACK, data);
 		}
 	}
+	
+	protected void processCloudletResume(int cloudletId, int userId, int vmId, boolean ack, CloudSimParallel cloudSimParallel) {
+		double eventTime = getVmAllocationPolicy().getHost(vmId, userId).getVm(vmId,userId)
+				.getCloudletScheduler().cloudletResume(cloudletId);
+
+		boolean status = false;
+		if (eventTime > 0.0) { // if this cloudlet is in the exec queue
+			status = true;
+			if (eventTime > cloudSimParallel.clock()) {
+				schedule(getId(), eventTime, CloudSimTags.VM_DATACENTER_EVENT, cloudSimParallel);
+			}
+		}
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = cloudletId;
+			if (status) {
+				data[2] = CloudSimTags.TRUE;
+			} else {
+				data[2] = CloudSimTags.FALSE;
+			}
+			sendNow(userId, CloudSimTags.CLOUDLET_RESUME_ACK, data, cloudSimParallel);
+		}
+	}
 
 	/**
 	 * Processes a Cloudlet pause request.
@@ -893,6 +1487,23 @@ public class Datacenter extends SimEntity {
 			sendNow(userId, CloudSimTags.CLOUDLET_PAUSE_ACK, data);
 		}
 	}
+	
+	protected void processCloudletPause(int cloudletId, int userId, int vmId, boolean ack, CloudSimParallel cloudSimParallel) {
+		boolean status = getVmAllocationPolicy().getHost(vmId, userId).getVm(vmId,userId)
+				.getCloudletScheduler().cloudletPause(cloudletId);
+
+		if (ack) {
+			int[] data = new int[3];
+			data[0] = getId();
+			data[1] = cloudletId;
+			if (status) {
+				data[2] = CloudSimTags.TRUE;
+			} else {
+				data[2] = CloudSimTags.FALSE;
+			}
+			sendNow(userId, CloudSimTags.CLOUDLET_PAUSE_ACK, data, cloudSimParallel);
+		}
+	}
 
 	/**
 	 * Processes a Cloudlet cancel request.
@@ -908,6 +1519,12 @@ public class Datacenter extends SimEntity {
 				.getCloudletScheduler().cloudletCancel(cloudletId);
 		sendNow(userId, CloudSimTags.CLOUDLET_CANCEL, cl);
 	}
+	
+	protected void processCloudletCancel(int cloudletId, int userId, int vmId, CloudSimParallel cloudSimParallel) {
+		Cloudlet cl = getVmAllocationPolicy().getHost(vmId, userId).getVm(vmId,userId)
+				.getCloudletScheduler().cloudletCancel(cloudletId);
+		sendNow(userId, CloudSimTags.CLOUDLET_CANCEL, cl, cloudSimParallel);
+	}
 
 	/**
 	 * Updates processing of each cloudlet running in this PowerDatacenter. It is necessary because
@@ -917,6 +1534,7 @@ public class Datacenter extends SimEntity {
 	 * @pre $none
 	 * @post $none
 	 */
+	
 	protected void updateCloudletProcessing() {
 		////*System.out.println("updating processing -> Datacenter.java");
 		Log.writeInLogFile(this.getName(), "updating processing -> Datacenter.java");
@@ -963,6 +1581,53 @@ public class Datacenter extends SimEntity {
 			Log.writeInLogFile(this.getName(), "Set the New last processing time by:"+CloudSim.clock());
 		}
 	}
+	
+	protected void updateCloudletProcessing(CloudSimParallel cloudSimParallel) {
+		////*System.out.println("updating processing -> Datacenter.java");
+		Log.writeInLogFile(this.getName(), "updating processing -> Datacenter.java");
+		// if some time passed since last processing
+		// R: for term is to allow loop at simulation start. Otherwise, one initial
+		// simulation step is skipped and schedulers are not properly initialized
+		////*System.out.println("CloudSim.clock() = "+CloudSim.clock() );
+		////*System.out.println("getLastProcessTime()="+getLastProcessTime());
+		////*System.out.println("CloudSim.getMinTimeBetweenEvents()="+CloudSim.getMinTimeBetweenEvents());
+		
+		if (cloudSimParallel.clock() < 0.111 || cloudSimParallel.clock() > getLastProcessTime() + cloudSimParallel.getMinTimeBetweenEvents()) {
+			List<? extends Host> list = getVmAllocationPolicy().getHostList();
+			double smallerTime = Double.MAX_VALUE;
+			// for each host...
+			////*System.out.println("fetching for the smaller time at hosts!");
+			Log.writeInLogFile(this.getName(), "fetching for the smaller time at hosts!");
+			for (int i = 0; i < list.size(); i++) {
+				Host host = list.get(i);
+				// inform VMs to update processing
+				
+				double time = host.updateVmsProcessing(cloudSimParallel.clock());
+				////*System.out.println("The smaller time in host "+host.getId()+" is "+time);
+				Log.writeInLogFile(this.getName(), "The smaller time in host "+host.getId()+" is "+time);
+				// what time do we expect that the next cloudlet will finish?
+				if (time < smallerTime) {
+					smallerTime = time;
+				}
+			}
+			////*System.out.println("the smaller time is :"+smallerTime);
+			// gurantees a minimal interval before scheduling the event
+			if (smallerTime < CloudSim.clock() + CloudSim.getMinTimeBetweenEvents() + 0.01) {
+				smallerTime = CloudSim.clock() + CloudSim.getMinTimeBetweenEvents() + 0.01;
+				////*System.out.println("the smaller time is :"+smallerTime);
+			}
+			if (smallerTime != Double.MAX_VALUE) {
+				////*System.out.println("smallerTime != Double.MAX_VALUE:-> updating the datacenter clock");
+				Log.writeInLogFile(this.getName(), "smallerTime != Double.MAX_VALUE:-> updating the datacenter clock");
+				schedule(getId(), (smallerTime - cloudSimParallel.clock()), CloudSimTags.VM_DATACENTER_EVENT, cloudSimParallel);
+			}
+			////*System.out.println("Old getLastProcessTime="+getLastProcessTime()); 
+			Log.writeInLogFile(this.getName(), "Old getLastProcessTime="+getLastProcessTime());
+			setLastProcessTime(cloudSimParallel.clock());
+			////*System.out.println("Set the New last processing time by:"+CloudSim.clock());
+			Log.writeInLogFile(this.getName(), "Set the New last processing time by:"+cloudSimParallel.clock());
+		}
+	}
 
 	/**
 	 * Verifies if some cloudlet inside this PowerDatacenter already finished. If yes, send it to
@@ -982,6 +1647,24 @@ public class Datacenter extends SimEntity {
 					Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
 					if (cl != null) {
 						sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cl);
+						////*System.out.println("the list of finished cloudlet in the vm# "+vm.getId()+" is not null, Cloudlet:"+ cl.getCloudletId()+" is dectected");
+					}
+				}
+			}
+		}
+	}
+	
+	protected void checkCloudletCompletion(CloudSimParallel cloudSimParallel) {
+		////*System.out.println("check Cloudlet Completion -> DataCenter.java");
+		Log.writeInLogFile(this.getName(), "check Cloudlet Completion -> DataCenter.java");
+		List<? extends Host> list = getVmAllocationPolicy().getHostList();
+		for (int i = 0; i < list.size(); i++) {
+			Host host = list.get(i);
+			for (Vm vm : host.getVmList()) {
+				while (vm.getCloudletScheduler().isFinishedCloudlets()) {
+					Cloudlet cl = vm.getCloudletScheduler().getNextFinishedCloudlet();
+					if (cl != null) {
+						sendNow(cl.getUserId(), CloudSimTags.CLOUDLET_RETURN, cloudSimParallel);
 						////*System.out.println("the list of finished cloudlet in the vm# "+vm.getId()+" is not null, Cloudlet:"+ cl.getCloudletId()+" is dectected");
 					}
 				}
@@ -1130,7 +1813,7 @@ public class Datacenter extends SimEntity {
 
 		// send the registration to GIS
 		////*System.out.println(getName()+" Sending an event to the CIS for resource registring!");
-		sendNow(gisID, CloudSimTags.REGISTER_RESOURCE, getId());
+		sendNow(gisID, CloudSimTags.REGISTER_RESOURCE, getId(), cloudSimParallel);
 		// Below method is for a child class to override
 		registerOtherEntity();
 	}

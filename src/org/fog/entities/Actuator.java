@@ -63,6 +63,15 @@ public class Actuator extends SimEntity{
 			break;
 		}		
 	}
+	
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		switch(ev.getTag()){
+		case FogEvents.TUPLE_PROCESS:
+			//processTupleArrival(ev);
+			break;
+		}		
+	}
 
 	private void processTupleArrival(SimEvent ev) {
 		Tuple tuple = (Tuple)ev.getData();

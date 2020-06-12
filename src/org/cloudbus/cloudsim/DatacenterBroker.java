@@ -680,4 +680,11 @@ public class DatacenterBroker extends SimEntity {
 		this.datacenterRequestedIdsList = datacenterRequestedIdsList;
 	}
 
+	@Override
+	public void startEntity(CloudSimParallel cloudSim) {
+		// TODO Auto-generated method stub
+		Log.printLine(getName() + " is starting...");
+		schedule(getId(), 0, CloudSimTags.RESOURCE_CHARACTERISTICS_REQUEST, cloudSim);
+	}
+
 }

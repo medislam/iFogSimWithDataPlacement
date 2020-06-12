@@ -37,6 +37,7 @@ import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisioner;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 import org.cloudbus.cloudsim.sdn.example.policies.VmSchedulerTimeSharedEnergy;
+import org.fog.Parallel.CloudSimParallel;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -142,9 +143,31 @@ public abstract class NetworkOperatingSystem extends SimEntity {
 			default: System.out.println("Unknown event received by "+super.getName()+". Tag:"+ev.getTag());
 		}
 	}
+	
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		int tag = ev.getTag();
+		
+		switch(tag){
+			case Constants.SDN_INTERNAL_PACKAGE_PROCESS: 
+				internalPackageProcess(); 
+				break;
+			case CloudSimTags.VM_CREATE_ACK:
+				processVmCreateAck(ev, cloudSimParallel);
+				break;
+			case CloudSimTags.VM_DESTROY:
+				processVmDestroyAck(ev, cloudSimParallel);
+				break;
+			default: System.out.println("Unknown event received by "+super.getName()+". Tag:"+ev.getTag());
+		}
+	}
 
+	public void processVmCreateAck(SimEvent ev, CloudSimParallel cloudSimParallel) {
+	}
+	
 	public void processVmCreateAck(SimEvent ev) {
 	}
+	
 	protected void processVmDestroyAck(SimEvent ev) {
 		Vm destroyedVm = (Vm) ev.getData();
 		// remove all channels transferring data from or to this vm.
@@ -164,6 +187,27 @@ public abstract class NetworkOperatingSystem extends SimEntity {
 		sendInternalEvent();
 		
 	}
+	
+	protected void processVmDestroyAck(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		Vm destroyedVm = (Vm) ev.getData();
+		// remove all channels transferring data from or to this vm.
+		for(Vm vm:this.vmList) {
+			Channel ch = this.findChannel(vm.getId(), destroyedVm.getId(), -1);
+			if(ch != null) {
+				this.removeChannel(getKey(vm.getId(), destroyedVm.getId(), -1));
+			}
+
+			ch = this.findChannel(destroyedVm.getId(), vm.getId(), -1);
+			if(ch != null) {
+				this.removeChannel(getKey(destroyedVm.getId(), vm.getId(), -1));
+			}
+
+		}
+		
+		sendInternalEvent(cloudSimParallel);
+		
+	}
+		
 
 	public void addPackageToChannel(Node sender, Package pkg) {
 		int src = pkg.getOrigin();
@@ -218,6 +262,18 @@ public abstract class NetworkOperatingSystem extends SimEntity {
 			Log.printLine(CloudSim.clock() + ": " + getName() + ".sendInternalEvent(): next finish time: "+ delay);
 			
 			send(this.getId(), delay, Constants.SDN_INTERNAL_PACKAGE_PROCESS);
+		}
+	}
+	
+	private void sendInternalEvent(CloudSimParallel cloudSimParallel) {
+		cloudSimParallel.cancelAll(getId(), new PredicateType(Constants.SDN_INTERNAL_PACKAGE_PROCESS));
+		
+		if(channelTable.size() != 0) {
+			// More to process. Send event again
+			double delay = this.nextFinishTime();
+			Log.printLine(cloudSimParallel.clock() + ": " + getName() + ".sendInternalEvent(): next finish time: "+ delay);
+			
+			send(this.getId(), delay, Constants.SDN_INTERNAL_PACKAGE_PROCESS, cloudSimParallel);
 		}
 	}
 	
