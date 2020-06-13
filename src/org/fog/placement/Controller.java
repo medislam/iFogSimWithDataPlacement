@@ -302,13 +302,36 @@ public class Controller extends SimEntity{
 		FogUtils.appIdToGeoCoverageMap.put(application.getAppId(), application.getGeoCoverage());
 		getApplications().put(application.getAppId(), application);
 		getAppLaunchDelays().put(application.getAppId(), delay);
+		
+		ModulePlacement modulePlacement = new ModulePlacementMapping(getFogDevices(), application, getModuleMapping());
+		
+		
+		for(FogDevice fogDevice : fogDevices){
+			//System.out.println("Add application to Fog dev:"+fogdev.getName()+" appId"+application.getAppId());
+			fogDevice.addApptoApplicationMap(application);
+			fogDevice.getActiveApplications().add(application.getAppId());
+			
+		}
+		
+		Map<Integer, List<AppModule>> deviceToModuleMap = modulePlacement.getDeviceToModuleMap();
+		Map<Integer, Map<String, Integer>> instanceCountMap = modulePlacement.getModuleInstanceCountMap();
+		for(Integer deviceId : deviceToModuleMap.keySet()){
+			for(AppModule module : deviceToModuleMap.get(deviceId)){
+				FogDevice fogDevice = (FogDevice) cloudSimParallel.getEntityById(deviceId);
+				fogDevice.processModuleArrival(module, cloudSimParallel);
+				ModuleLaunchConfig config = new ModuleLaunchConfig(module, instanceCountMap.get(deviceId).get(module.getName()));
+				fogDevice.updateModuleInstanceCount(config,  cloudSimParallel);
+			}
+		}
+		
+		
 		for(Sensor sensor : sensors){
-			System.out.println("set app for sensor "+sensor.getName());
+			//System.out.println("set app for sensor "+sensor.getName());
 			sensor.setApp(application);
 		}
 		for(Actuator ac : actuators){
 			ac.setApp(application);
-			System.out.println("set app for actuator "+ac.getName());
+			//System.out.println("set app for actuator "+ac.getName());
 		}
 		
 		for(AppEdge edge : application.getEdges()){
@@ -320,7 +343,7 @@ public class Controller extends SimEntity{
 				}
 			}
 		}
-		
+				
 	}
 	
 	

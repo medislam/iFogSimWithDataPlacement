@@ -4,8 +4,10 @@ package org.fog.examples;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.StorageMode.ClosestNodeStorage;
 import org.StorageMode.CloudStorage;
@@ -88,15 +90,33 @@ public class DataPlacement {
 	public static final long HGW_Storage = 1000000000; // 1 GB
 
 	/* infrastructure */
-//	public static int nb_HGW=500; //6 HGW per LPOP
-//	public static final int nb_LPOP = 50; //4 LPOP per RPOP
-//	public static final int nb_RPOP = 10; //2 RPOP per DC
-//	public static final int nb_DC = 5; //
+	
+//	public static int nb_HGW=4000; //6 HGW per LPOP
+//	public static final int nb_LPOP = 400; //4 LPOP per RPOP
+//	public static final int nb_RPOP = 80; //2 RPOP per DC
+//	public static final int nb_DC = 16; //
+	
+//	public static int nb_HGW=2000; //6 HGW per LPOP
+//	public static final int nb_LPOP = 200; //4 LPOP per RPOP
+//	public static final int nb_RPOP = 40; //2 RPOP per DC
+//	public static final int nb_DC = 8; //
+	
+	
+//	public static int nb_HGW=1000; //6 HGW per LPOP
+//	public static final int nb_LPOP = 200; //4 LPOP per RPOP
+//	public static final int nb_RPOP = 20; //2 RPOP per DC
+//	public static final int nb_DC = 4; //
+	
+	
+	public static int nb_HGW=500; //6 HGW per LPOP
+	public static final int nb_LPOP = 100; //4 LPOP per RPOP
+	public static final int nb_RPOP = 10; //2 RPOP per DC
+	public static final int nb_DC = 2;  //
 
-	public static int nb_HGW=8; //3 HGW per LPOP
-	public static final int nb_LPOP = 4; //2 LPOP per RPOP
-	public static final int nb_RPOP = 2; //2 RPOP per DC
-	public static final int nb_DC = 1; //
+//	public static int nb_HGW=8; //3 HGW per LPOP
+//	public static final int nb_LPOP = 4; //2 LPOP per RPOP
+//	public static final int nb_RPOP = 2; //2 RPOP per DC
+//	public static final int nb_DC = 2; //
 	
 	public static final int nb_SnrPerHGW = 1;
 	public static final int nb_ActPerHGW = 1;
@@ -147,6 +167,10 @@ public class DataPlacement {
 	public static List<FogDevice> fogDevices = new ArrayList<FogDevice>();
 	public static List<Sensor> sensors = new ArrayList<Sensor>();
 	public static List<Actuator> actuators = new ArrayList<Actuator>();
+	
+	public static Map<String, FogDevice> fogDeviceByNameMap = new HashMap<String, FogDevice>();
+	public static Map<String, Sensor> sensorsByNameMap = new HashMap<String, Sensor>();
+	public static Map<String,Actuator> actuatorsByNameMap = new HashMap<String, Actuator>();
 
 	public static int nb_DataCons_By_DataProd ;
 
@@ -170,7 +194,7 @@ public class DataPlacement {
 	public static Calendar calendar;
 	public static int num_user = 1; // number of cloud users
 	
-	public static boolean generate_log_file = true;
+	public static boolean generate_log_file = false;
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -225,7 +249,7 @@ public class DataPlacement {
 				e_simZone = Calendar.getInstance().getTimeInMillis();
 				t_simZone = e_simZone - b_simZone;
 				System.out.println("Zoning Storage Simualtion Time ="+t_simZone);
-				org.fog.examples.Log.writeSimulationTimeParallel(DataPlacement.nb_HGW,"consProd:"+ DataPlacement.nb_DataCons_By_DataProd + " Zoning Sim time:"+String.valueOf(t_simZone));
+				org.fog.examples.Log.writeSimulationTimeParallel(DataPlacement.nb_HGW,"consProd:"+ DataPlacement.nb_DataCons_By_DataProd + "Nb zones"+ DataPlacement.nb_zone + "  Zoning Sim time:"+String.valueOf(t_simZone));
 
 
 			}else if (storageMode.equals(ZoningStorageParallel)) {
@@ -236,7 +260,7 @@ public class DataPlacement {
 				e_simZone = Calendar.getInstance().getTimeInMillis();
 				t_simZone = e_simZone - b_simZone;
 				System.out.println("Zoning Storage Parallel Simualtion Time ="+t_simZone);
-				org.fog.examples.Log.writeSimulationTimeParallel(DataPlacement.nb_HGW,"consProd:"+ DataPlacement.nb_DataCons_By_DataProd + " Zoning Parallel Sim time:"+String.valueOf(t_simZone));
+				org.fog.examples.Log.writeSimulationTimeParallel(DataPlacement.nb_HGW,"consProd:"+ DataPlacement.nb_DataCons_By_DataProd + "Nb zones"+ DataPlacement.nb_zone + "  Zoning Parallel Sim time:"+String.valueOf(t_simZone));
 
 
 			} 
@@ -321,6 +345,7 @@ public class DataPlacement {
 					10000, 4, 0.01, 16 * 103, 16 * 83.25, cluodSimParallel);
 			DC.setParentId((int) -1);
 			fogDevices.add(DC);
+			fogDeviceByNameMap.put("DC" + i, DC);
 		}
 
 		/* create RPOP */
@@ -331,6 +356,7 @@ public class DataPlacement {
 			RPOP.setParentId((i / (nb_RPOP / nb_DC)) + 3);
 			RPOP.setUplinkLatency(LatencyDCToRPOP);
 			fogDevices.add(RPOP);
+			fogDeviceByNameMap.put("RPOP" + i, RPOP);
 		}
 
 		/* create LPOP */
@@ -341,6 +367,8 @@ public class DataPlacement {
 			LPOP.setParentId((i / (nb_LPOP / nb_RPOP)) + nb_DC + 3);
 			LPOP.setUplinkLatency(LatencyRPOPToLPOP);
 			fogDevices.add(LPOP);
+			
+			fogDeviceByNameMap.put("LPOP" + i, LPOP);
 		}
 
 		for (int i = 0; i < nb_HGW; i++) {
@@ -350,6 +378,7 @@ public class DataPlacement {
 			HGW.setParentId((i / (nb_HGW / nb_LPOP)) + nb_DC + nb_RPOP + 3);
 			HGW.setUplinkLatency(LatencyLPOPToHGW);
 			fogDevices.add(HGW);
+			fogDeviceByNameMap.put("HGW" + i, HGW);
 		}
 	}
 
@@ -401,6 +430,7 @@ public class DataPlacement {
 			for (int j = 0; j < nb_SnrPerHGW; j++, id_snr++) {
 				Sensor snr = new Sensor("s-" + id_snr, "TempSNR"+ (int) (id_snr), userId, appId,new DeterministicDistribution(SNR_TRANSMISSION_TIME), cloudSimParallel); 
 				sensors.add(snr);
+				sensorsByNameMap.put("s-" + id_snr, snr);
 				snr.setGatewayDeviceId(HGW.getId());
 				snr.setLatency(LatencyHGWToSNR); 
 			}
@@ -409,6 +439,7 @@ public class DataPlacement {
 			for (int k = 0; k < nb_ActPerHGW; k++, id_act++) {
 				Actuator act = new Actuator("a-" + id_act, userId, appId,"DISPLAY" + (int) (id_act), cloudSimParallel);
 				actuators.add(act);
+				actuatorsByNameMap.put("a-" + id_act, act);
 				act.setGatewayDeviceId(HGW.getId());
 				act.setLatency(LatencyHGWToACT); 
 			}

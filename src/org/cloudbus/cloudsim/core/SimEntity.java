@@ -12,6 +12,7 @@ import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.NetworkTopology;
 import org.cloudbus.cloudsim.core.predicates.Predicate;
 import org.fog.Parallel.CloudSimParallel;
+import org.fog.application.AppModule;
 import org.fog.examples.DataPlacement;
 
 /**
@@ -67,7 +68,7 @@ public abstract class SimEntity implements Cloneable {
 		this.name = name;
 		id = -1;
 		state = RUNNABLE;
-		cloudSimParalle.addEntity(this);
+		//cloudSimParalle.addEntity(this);
 		
 	}
 
@@ -568,7 +569,7 @@ public abstract class SimEntity implements Cloneable {
 		SimEvent ev = evbuf != null ? evbuf : getNextEvent(cloudSimParallel);
 
 		while (ev != null) {
-			System.out.println("\nProcessing ev of evbuf:"+ev.toString());
+			//System.out.println("\nProcessing ev of evbuf:"+ev.toString());
 			processEvent(ev, cloudSimParallel);
 			if (state != RUNNABLE) {
 				break;
@@ -887,6 +888,7 @@ public abstract class SimEntity implements Cloneable {
 	}
 	
 	public abstract void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel);
+
 
 	
 

@@ -163,4 +163,10 @@ public class Actuator extends SimEntity{
 		this.latency = latency;
 	}
 
+	@Override
+	public void shutdownEntity(CloudSimParallel cloudSimParallel) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

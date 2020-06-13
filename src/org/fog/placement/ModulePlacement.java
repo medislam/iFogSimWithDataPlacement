@@ -59,8 +59,8 @@ public abstract class ModulePlacement {
 			getModuleToDeviceMap().get(module.getName()).add(device.getId());
 			return true;
 		} else {
-			System.err.println("Module "+module.getName()+" cannot be created on device "+device.getName());
-			System.err.println("Terminating");
+			//System.err.println("Module "+module.getName()+" cannot be created on device "+device.getName());
+			//System.err.println("Terminating");
 			return false;
 		}
 	}

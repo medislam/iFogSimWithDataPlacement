@@ -38,7 +38,7 @@ public class ThreadInZone extends Thread{
 		this.dataAllocation=dataAllocation;
 		this.zoneDevises = zoneDevises;
 		this.cloudsimparallel = cloudsimparallel;
-		printDevicesInZone();
+		//printDevicesInZone();
 	}
 	
 	public void run() {
@@ -78,8 +78,12 @@ public class ThreadInZone extends Thread{
 			generateDataActorsFileInZone(zone, zoneDevises);
 	
 			long begin_t = Calendar.getInstance().getTimeInMillis();
-			System.out.println("Making LP file...");
+			System.out.println("Making LP file Thread:"+zone);
 			Log.writeInLogFile("DataPlacement", "Making LP file...");
+			
+			//printDevicesInZone();
+			
+			
 			MakeLPFileInZone mlpf = new MakeLPFileInZone(DataPlacement.nb_HGW, zone);
 			long end_t = Calendar.getInstance().getTimeInMillis();
 			long period_t = end_t - begin_t;

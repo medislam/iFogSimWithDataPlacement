@@ -224,10 +224,10 @@ public class Sensor extends SimEntity{
 	
 	@Override
 	public void startEntity(CloudSimParallel cloudSimParallel) {
-		System.out.println(this.getName()+": Send snecor joined to:"+gatewayDeviceId);
+		//System.out.println(this.getName()+": Send sensor joined to:"+gatewayDeviceId);
 		send(gatewayDeviceId, cloudSimParallel.getMinTimeBetweenEvents(), FogEvents.SENSOR_JOINED, geoLocation, cloudSimParallel);
 		//sendNow(gatewayDeviceId, FogEvents.SENSOR_JOINED, geoLocation);
-		System.out.println(this.getName()+": Send snecor emit tuple to"+ getId());
+		//System.out.println(this.getName()+": Send snecor emit tuple to"+ getId());
 		send2(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE, cloudSimParallel);
 	}
 
@@ -242,7 +242,7 @@ public class Sensor extends SimEntity{
 			break;
 		case FogEvents.EMIT_TUPLE:
 			transmit();
-			System.out.println("Send ev for the next period:getNextValue() seq ="+getTransmitDistribution().getNextValue());
+			//System.out.println("Send ev for the next period:getNextValue() seq ="+getTransmitDistribution().getNextValue());
 			send(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE);
 			break;
 		}
@@ -260,7 +260,7 @@ public class Sensor extends SimEntity{
 			break;
 		case FogEvents.EMIT_TUPLE:
 			transmit(cloudSimParallel);
-			System.out.println("Send ev for the next period:getNextValue() par="+getTransmitDistribution().getNextValue());
+			//System.out.println("Send ev for the next period:getNextValue() par="+getTransmitDistribution().getNextValue());
 			send2(getId(), getTransmitDistribution().getNextValue(), FogEvents.EMIT_TUPLE, cloudSimParallel);
 			break;
 		}

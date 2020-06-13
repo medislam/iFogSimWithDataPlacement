@@ -36,7 +36,7 @@ public class Log{
 	}
 	
 	public static void writeSimulationTimeParallel(int nb_HGW, String log) throws IOException{
-		FileWriter lpFile = new FileWriter("Stats/simulationTimeParallel"+nb_HGW+"_"+DataPlacement.nb_DataCons_By_DataProd, true);
+		FileWriter lpFile = new FileWriter("Stats/simulationTimeParallel"+nb_HGW+"_"+DataPlacement.nb_zone, true);
 		try {
 			BufferedWriter fw = new BufferedWriter(lpFile);
 			fw.write(log+"\n");

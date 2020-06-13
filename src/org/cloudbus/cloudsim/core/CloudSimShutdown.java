@@ -102,4 +102,19 @@ public class CloudSimShutdown extends SimEntity {
 		// do nothing
 	}
 
+	@Override
+	public void shutdownEntity(CloudSimParallel cloudSimParallel) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void processEvent(SimEvent ev, CloudSimParallel cloudSimParallel) {
+		// TODO Auto-generated method stub
+		numUser--;
+		if (numUser == 0 || ev.getTag() == CloudSimTags.ABRUPT_END_OF_SIMULATION) {
+			cloudSimParallel.abruptallyTerminate();
+		}
+	}
+
 }

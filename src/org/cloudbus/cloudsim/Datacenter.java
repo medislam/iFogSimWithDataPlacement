@@ -1955,4 +1955,11 @@ public class Datacenter extends SimEntity {
 		this.schedulingInterval = schedulingInterval;
 	}
 
+	@Override
+	public void shutdownEntity(CloudSimParallel cloudSimParallel) {
+		// TODO Auto-generated method stub
+		Log.printLine(getName() + " is shutting down...");
+		
+	}
+
 }

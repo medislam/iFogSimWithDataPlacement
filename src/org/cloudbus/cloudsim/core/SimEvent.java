@@ -109,7 +109,8 @@ public class SimEvent implements Cloneable, Comparable<SimEvent> {
 	
 	
 	public String toString(CloudSimParallel cloudSimParallel) {
-		return "Event tag = " +tag+" -> " +CloudSimTags.getTagString(tag) + " serial="+serial +" source = " + cloudSimParallel.getEntity(entSrc).getName() + " destination = " + cloudSimParallel.getEntity(entDst).getName()+ "  event_Time "+eventTime();
+		//return "Event tag = " +tag+" -> " +CloudSimTags.getTagString(tag) + " serial="+serial +" source = " + cloudSimParallel.getEntity(entSrc).getName() + " destination = " + cloudSimParallel.getEntity(entDst).getName()+ "  event_Time "+eventTime();
+		return "Event tag = " +tag+" -> " +CloudSimTags.getTagString(tag) + " serial="+serial +" source = " + entSrc + " destination = " + entDst+ "  event_Time "+eventTime();
 	}
 
 	/**

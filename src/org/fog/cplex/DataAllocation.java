@@ -123,22 +123,25 @@ public class DataAllocation {
 					if(val.equals("1.0")){
 						cond = true;
 						if(row >= (zoneDevices.get("hgws").size()+ zoneDevices.get("lpops").size())){
-						//if(row >= (DataPlacement.nb_Service_HGW + DataPlacement.nb_Service_LPOP)){
 							//TempRPOP
 							int index = (row - zoneDevices.get("hgws").size() - zoneDevices.get("lpops").size()) + zoneDevices.get("rpops").size()*zone;
+							//System.out.println("Set TempRPOP"+index);
 							//dataAllocationMap.put("TempRPOP"+index, getFogDeviceIndex(col,zone, zoneDevices));
 							//dataAllocationMap.put("TempRPOP"+index, index+DataPlacement.nb_DC+3);	
-							dataPlacementMap.put("TempRPOP"+index, application.getFogDeviceByName("RPOP"+index).getId());
 							//System.out.println("Set TempRPOP"+index+"   "+getFogDeviceIndex(col,zone, zoneDevices));
+							dataPlacementMap.put("TempRPOP"+index, application.getFogDeviceByName("RPOP"+index).getId());
+							
 							
 						}else if(row >= zoneDevices.get("hgws").size()){
 							//TempLPOP
 							int index = (row - zoneDevices.get("hgws").size()) + zoneDevices.get("lpops").size()*zone ;
+							//System.out.println("Set TempLPOP"+index);
 							
 							if(checkConsInZone("TempLPOP"+index, zone, zoneDevices, application)){
 								dataPlacementMap.put("TempLPOP"+index, getFogDeviceIndex(col,zone, zoneDevices));
 																
 							}else{
+								//System.out.println("external consumer !, the tuple will be stored at the rpop parent");
 								dataPlacementMap.put("TempLPOP"+index, application.getFogDeviceByName("LPOP"+index).getParentId());
 								nb_Extern_tuple_cons++;
 							}
@@ -147,12 +150,16 @@ public class DataAllocation {
 						}else if(row < zoneDevices.get("hgws").size()){
 							//TempHGW
 							int index = row + zoneDevices.get("hgws").size()*zone;
+							//System.out.println("Set TempHGW"+index);
 							
 							if(checkConsInZone("TempHGW"+index, zone, zoneDevices, application)){
 								dataPlacementMap.put("TempHGW"+index, getFogDeviceIndex(col,zone, zoneDevices));
 								//System.out.println("Set TempHGW"+index+"   "+getFogDeviceIndex(col,zone, zoneDevices));
 							}else{
-								dataPlacementMap.put("TempHGW"+index, application.getFogDeviceById(application.getFogDeviceByName("HGW"+index).getParentId()).getParentId());
+								//System.out.println("external consumer !, the tuple will be stored at the rpop parent");
+								int parentId = application.getFogDeviceByName("HGW"+index).getParentId();
+								int parentparentId = application.getFogDeviceById(parentId).getParentId();
+								dataPlacementMap.put("TempHGW"+index, parentparentId);
 								nb_Extern_tuple_cons++;
 							}
 							

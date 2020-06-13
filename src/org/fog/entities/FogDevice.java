@@ -526,6 +526,17 @@ public class FogDevice extends PowerDatacenter {
 		moduleInstanceCount.get(appId).put(config.getModule().getName(), config.getInstanceCount());
 		////*System.out.println(getName()+ " Creating "+config.getInstanceCount()+" instances of module "+config.getModule().getName());
 	}
+	
+	public void updateModuleInstanceCount(ModuleLaunchConfig config, CloudSimParallel cloudSimParallel) {
+		
+		String appId = config.getModule().getAppId();
+		
+		if(!moduleInstanceCount.containsKey(appId))
+			moduleInstanceCount.put(appId, new HashMap<String, Integer>());
+		
+		moduleInstanceCount.get(appId).put(config.getModule().getName(), config.getInstanceCount());
+		////*System.out.println(getName()+ " Creating "+config.getInstanceCount()+" instances of module "+config.getModule().getName());
+	}
 
 	/**
 	 * Sending periodic tuple for an application edge. Note that for multiple instances of a single source module, only one tuple is sent DOWN while instanceCount number of tuples are sent UP.
@@ -789,7 +800,7 @@ public class FogDevice extends PowerDatacenter {
 		for(Integer childId : getChildrenIds()){
 			if(targetDeviceId == childId)
 				return childId;
-			if(((FogDevice)cloudSimParallel.getEntity(childId)).getChildIdWithRouteTo(targetDeviceId) != -1)
+			if(((FogDevice)cloudSimParallel.getEntityById(childId)).getChildIdWithRouteTo(targetDeviceId) != -1)
 				return childId;
 		}
 		return -1;
@@ -805,7 +816,7 @@ public class FogDevice extends PowerDatacenter {
 	
 	protected int getChildIdForTuple(Tuple tuple, CloudSimParallel cloudSimParallel){
 		if(tuple.getDirection() == Tuple.ACTUATOR){
-			int gatewayId = ((Actuator)cloudSimParallel.getEntity(tuple.getActuatorId())).getGatewayDeviceId();
+			int gatewayId = ((Actuator)cloudSimParallel.getEntityById(tuple.getActuatorId())).getGatewayDeviceId();
 			return getChildIdWithRouteTo(gatewayId, cloudSimParallel);
 		}
 		return -1;
@@ -910,6 +921,10 @@ public class FogDevice extends PowerDatacenter {
 		applicationMap.put(app.getAppId(), app);
 	}
 	
+	public void addApptoApplicationMap(Application app) {
+		applicationMap.put(app.getAppId(), app);
+	}
+	
 	protected void processAppSubmit(SimEvent ev, CloudSimParallel cloudSimParallel) {
 		Application app = (Application)ev.getData();
 		applicationMap.put(app.getAppId(), app);
@@ -994,7 +1009,7 @@ public class FogDevice extends PowerDatacenter {
 		for(Pair<Integer, Double> actuatorAssociation : getAssociatedActuatorIds()){
 			int actuatorId = actuatorAssociation.getFirst();
 			double delay = actuatorAssociation.getSecond();
-			String actuatorType = ((Actuator)cloudSimParallel.getEntity(actuatorId)).getActuatorType();
+			String actuatorType = ((Actuator)cloudSimParallel.getEntityById(actuatorId)).getActuatorType();
 			if(tuple.getDestModuleName().get(0).equals(actuatorType)){
 				int ex = DataPlacement.Basis_Exchange_Unit;
 				long tupleDataSize = tuple.getCloudletFileSize();
@@ -1087,10 +1102,10 @@ public class FogDevice extends PowerDatacenter {
 	
 	protected void processTupleProcess(SimEvent ev, CloudSimParallel cloudSimParallel){
 
-		System.out.println("processTupleProcess: process tuple and send vm-data-center to self");
+//		System.out.println("Thread N:"+cloudSimParallel.getNumThread()+"  processTupleProcess: process tuple and send vm-data-center to self");
 		Log.writeInLogFile(this.getName(), "processTupleProcess: process tuple and send vm-data-center to self");
 		Tuple tuple = (Tuple)ev.getData();
-		System.out.println("Tuple:"+tuple.toString());
+//		System.out.println("Thread N:"+cloudSimParallel.getNumThread()+"  Tuple:"+tuple.toString());
 		Log.writeInLogFile(this.getName(), "Tuple:"+tuple.toString());
 		if(ev.getDestination()!=getId()){
 			System.out.println("Error!!! ev.Destination Id:"+ev.getDestination()+" is different to the Entity Id"+getId());
@@ -1111,11 +1126,11 @@ public class FogDevice extends PowerDatacenter {
 		
 		List<String> lisapp = appToModulesMap.get(tuple.getAppId());
 		
-		System.out.println("lisapp"+lisapp);
-		System.out.println("appToModulesMap print");
-		for(String app : appToModulesMap.keySet()) {
-			System.out.println("list of module:"+appToModulesMap.get(app));
-		}
+//		System.out.println("lisapp"+lisapp);
+//		System.out.println("appToModulesMap print");
+//		for(String app : appToModulesMap.keySet()) {
+//			System.out.println("list of module:"+appToModulesMap.get(app));
+//		}
 		
 		if(lisapp.contains(tuple.getDestModuleName().get(0))){
 			/* Search the destination module (vm) in this host */	
@@ -1337,12 +1352,33 @@ public class FogDevice extends PowerDatacenter {
 		AppModule module = (AppModule)ev.getData();
 		String appId = module.getAppId();
 		
-		System.out.println("Creating module "+module.getName()+" on device "+getName()+"+\tappId="+appId);
+		//System.out.println("Creating module "+module.getName()+" on device "+getName()+"+\tappId="+appId);
 		if(!appToModulesMap.containsKey(appId)){
 			appToModulesMap.put(appId, new ArrayList<String>());
 		}
 		
-		System.out.println("appToModulesMap.get("+appId+").add("+module.getName()+")");
+		//System.out.println("appToModulesMap.get("+appId+").add("+module.getName()+")");
+		appToModulesMap.get(appId).add(module.getName());
+		//processVmCreate(ev, false);
+		if (module.isBeingInstantiated()) {
+			module.setBeingInstantiated(false);
+		}
+		
+		
+		initializePeriodicTuples(module, cloudSimParallel);
+		
+		module.updateVmProcessing(cloudSimParallel.clock(), getVmAllocationPolicy().getHost(module).getVmScheduler().getAllocatedMipsForVm(module));
+	}
+	
+	public void processModuleArrival(AppModule module, CloudSimParallel cloudSimParallel){
+		String appId = module.getAppId();
+		
+		//System.out.println("Creating module "+module.getName()+" on device "+getName()+"+\tappId="+appId);
+		if(!appToModulesMap.containsKey(appId)){
+			appToModulesMap.put(appId, new ArrayList<String>());
+		}
+		
+		//System.out.println("appToModulesMap.get("+appId+").add("+module.getName()+")");
 		appToModulesMap.get(appId).add(module.getName());
 		//processVmCreate(ev, false);
 		if (module.isBeingInstantiated()) {
@@ -1371,7 +1407,7 @@ public class FogDevice extends PowerDatacenter {
 	}
 	
 	private void initializePeriodicTuples(AppModule module, CloudSimParallel cloudSimParallel) {
-		System.out.println("Sending of perioding tuples from "+getName()+"?");
+		//System.out.println("Sending of perioding tuples from "+getName()+"?");
 		Log.writeInLogFile(this.getName(), "Sending of perioding tuples from "+getName()+"?");
 		String appId = module.getAppId();
 		Application app = getApplicationMap().get(appId);
@@ -1379,7 +1415,7 @@ public class FogDevice extends PowerDatacenter {
 		//if there are a list of periodic tuples
 		List<AppEdge> periodicEdges = app.getPeriodicEdges(module.getName());
 		for(AppEdge edge : periodicEdges){
-			System.out.println("Sending of perdiong tuple :"+edge.toString());
+			//System.out.println("Sending of perdiong tuple :"+edge.toString());
 			Log.writeInLogFile(this.getName(), "Sending of perdiong tuple :"+edge.toString());
 			send(getId(), edge.getPeriodicity(), FogEvents.SEND_PERIODIC_TUPLE, edge, cloudSimParallel);
 		}
