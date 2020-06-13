@@ -156,6 +156,7 @@ public class DataPlacement {
 
 	public static final List<Integer> nb_zones_list = Arrays.asList(2);
 	public static final List<Integer> nb_partitions_list = Arrays.asList(2,5);
+	
 
 	
 	public static int nb_zone;
