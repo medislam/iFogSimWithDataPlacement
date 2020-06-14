@@ -1,15 +1,9 @@
 /.classpath
 /.project
 /FloydWarshallFloatPrallel.c
-/Log/
 /README.md
-/Stats/
-/images/
 /jars/
-/latencies/
 /libArcPonderation.so
 /libFloydWarshallFloatPrallel.so
 /nativeArcPonderation.c
 /org/
-/topologies/
-/makefile

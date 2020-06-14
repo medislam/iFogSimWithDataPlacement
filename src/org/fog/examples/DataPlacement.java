@@ -155,6 +155,11 @@ public class DataPlacement {
 	//public static final List<String> storageModes = Arrays.asList(CloudStorage, ClosestNode);
 
 	public static final List<Integer> nb_zones_list = Arrays.asList(2);
+//	public static final List<Integer> nb_zones_list = Arrays.asList(4);
+//	public static final List<Integer> nb_zones_list = Arrays.asList(8);
+//	public static final List<Integer> nb_zones_list = Arrays.asList(16);
+	
+	
 	public static final List<Integer> nb_partitions_list = Arrays.asList(2,5);
 	
 
@@ -195,7 +200,7 @@ public class DataPlacement {
 	public static Calendar calendar;
 	public static int num_user = 1; // number of cloud users
 	
-	public static boolean generate_log_file = false;
+	public static boolean generate_log_file = true;
 
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
